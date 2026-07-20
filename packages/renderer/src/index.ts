@@ -1,0 +1,1 @@
+export { renderWorld, CANVAS_WIDTH, CANVAS_HEIGHT } from './renderWorld'
