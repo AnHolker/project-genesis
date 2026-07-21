@@ -143,5 +143,104 @@ describe('Runtime', () => {
         expect(result).toEqual([])
       })
     })
+
+    // -------------------------------------------------------------------
+    // RuntimeQuery interface methods
+    // -------------------------------------------------------------------
+
+    describe('findEntity (interface method)', () => {
+      it('should find an entity by id via the interface method', () => {
+        const runtime = new Runtime()
+        runtime.applyActions([makeCreateAction('tree', 1, 2)])
+        const id = runtime.world.entities[0].id
+
+        const entity = runtime.query.findEntity(id)
+
+        expect(entity).toBeDefined()
+        expect(entity!.id).toBe(id)
+        expect(entity!.type).toBe('tree')
+        expect(entity!.x).toBe(1)
+        expect(entity!.y).toBe(2)
+      })
+
+      it('should return undefined for non-existent entity', () => {
+        const runtime = new Runtime()
+        expect(runtime.query.findEntity('ghost')).toBeUndefined()
+      })
+    })
+
+    describe('findEntities (interface method)', () => {
+      it('should return all entities when type is omitted', () => {
+        const runtime = new Runtime()
+        runtime.applyActions([makeCreateAction('tree', 1, 2)])
+        runtime.applyActions([makeCreateAction('rock', 3, 4)])
+
+        const all = runtime.query.findEntities()
+
+        expect(all).toHaveLength(2)
+      })
+
+      it('should filter by type when type is provided', () => {
+        const runtime = new Runtime()
+        runtime.applyActions([makeCreateAction('tree', 1, 2)])
+        runtime.applyActions([makeCreateAction('tree', 3, 4)])
+        runtime.applyActions([makeCreateAction('rock', 5, 6)])
+
+        const trees = runtime.query.findEntities('tree')
+
+        expect(trees).toHaveLength(2)
+        expect(trees[0].type).toBe('tree')
+        expect(trees[1].type).toBe('tree')
+      })
+
+      it('should return empty array when type has no matches', () => {
+        const runtime = new Runtime()
+        expect(runtime.query.findEntities('ghost')).toEqual([])
+      })
+
+      it('should return a new array (not the internal reference)', () => {
+        const runtime = new Runtime()
+        runtime.applyActions([makeCreateAction('tree', 1, 2)])
+
+        const all = runtime.query.findEntities()
+        expect(all).toHaveLength(1)
+
+        // Mutating the returned array should not affect the world
+        all.pop()
+        expect(runtime.world.entities).toHaveLength(1)
+      })
+    })
+
+    describe('getWorldSnapshot', () => {
+      it('should return a snapshot of the current world', () => {
+        const runtime = new Runtime()
+        runtime.applyActions([makeCreateAction('tree', 1, 2)])
+        runtime.applyActions([makeCreateAction('rock', 3, 4)])
+
+        const snapshot = runtime.query.getWorldSnapshot()
+
+        expect(snapshot.entities).toHaveLength(2)
+        expect(snapshot.entities[0].type).toBe('tree')
+        expect(snapshot.entities[1].type).toBe('rock')
+      })
+
+      it('should return empty world when no entities exist', () => {
+        const runtime = new Runtime()
+        const snapshot = runtime.query.getWorldSnapshot()
+        expect(snapshot.entities).toEqual([])
+      })
+
+      it('should return a copy (not the internal reference)', () => {
+        const runtime = new Runtime()
+        runtime.applyActions([makeCreateAction('tree', 1, 2)])
+
+        const snapshot = runtime.query.getWorldSnapshot()
+        expect(snapshot.entities).toHaveLength(1)
+
+        // Mutating the snapshot entities should not affect the world
+        ;(snapshot.entities as Array<unknown>).pop()
+        expect(runtime.world.entities).toHaveLength(1)
+      })
+    })
   })
 })

@@ -3,11 +3,10 @@ import type { Tool } from './Tool'
 /**
  * MockFindEntityTool simulates finding an entity by ID or name.
  *
- * This is a demonstration tool for the Tool Calling Foundation (WO-S3-005).
- * It returns hardcoded mock data and does NOT access Runtime.
+ * This tool returns hardcoded mock data and does NOT access Runtime.
+ * It is useful for testing without creating a Runtime instance.
  *
- * In a future work order (Agent Loop), this tool will be replaced with
- * a real implementation that queries RuntimeQuery.
+ * For real world data, use FindEntityTool instead.
  */
 export class MockFindEntityTool implements Tool {
   readonly name = 'find_entity'

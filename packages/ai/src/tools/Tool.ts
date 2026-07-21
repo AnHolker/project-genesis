@@ -15,9 +15,8 @@ export interface Tool {
   /**
    * Execute the tool with the given input and return a result.
    *
-   * For the foundation phase (WO-S3-005), concrete execution remains
-   * outside providers. The ToolCallPlanner orchestrates execution.
-   * Actual Runtime integration will be added in a later work order.
+   * Concrete execution remains outside providers.
+   * The ToolCallPlanner orchestrates execution.
    */
   execute(input: unknown): Promise<unknown>
 }

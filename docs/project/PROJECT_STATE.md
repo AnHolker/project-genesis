@@ -80,6 +80,7 @@
 | WO-S3-003 | Streaming UI Integration |
 | WO-S3-004 | Planner Retry & Self-Healing |
 | WO-S3-005 | Tool Calling Foundation |
+| WO-S3-006 | Runtime Tool Execution |
 
 ---
 
@@ -440,6 +441,7 @@ Key remaining items:
 | ADR-0020 | Streaming UI Integration | `docs/adr/ADR-0020-streaming-ui-integration.md` |
 | ADR-0021 | Planner Retry & Self-Healing | `docs/adr/ADR-0021-planner-retry.md` |
 | ADR-0022 | Tool Calling Foundation | `docs/adr/ADR-0022-tool-calling.md` |
+| ADR-0023 | Runtime Tool Execution | `docs/adr/ADR-0023-runtime-tool-execution.md` |
 
 ---
 

@@ -360,3 +360,37 @@
   - Metadata preservation (1 test)
 - All 178 tests pass (33 new + 145 existing)
 - TypeScript compilation clean, ESLint clean, full project build passes
+
+### WO-S3-006 — Runtime Tool Execution
+
+- Created `RuntimeQuery` interface in `@genesis/shared/src/RuntimeQuery.ts`
+  - `findEntity(id: string): Entity | undefined` — find entity by unique ID
+  - `findEntities(type?: string): Entity[]` — find entities by type (or all if type omitted)
+  - `getWorldSnapshot(): Readonly<World>` — get read-only snapshot of entire world
+  - Belongs in `@genesis/shared` so both `@genesis/runtime` and `@genesis/ai` can depend on it
+  - No mutation APIs exposed — read-only by design
+- Updated `@genesis/runtime/src/query/RuntimeQuery.ts`
+  - Now implements `RuntimeQuery` interface from `@genesis/shared`
+  - Added `findEntity()`, `findEntities()`, `getWorldSnapshot()` methods
+  - Kept `findById()` and `findByType()` as deprecated aliases for backward compatibility
+  - `getWorldSnapshot()` returns a defensive copy (not internal reference)
+- Created `FindEntityTool` in `packages/ai/src/tools/FindEntityTool.ts`
+  - Takes `RuntimeQuery` interface via constructor (no Runtime dependency)
+  - Finds entity by `{ id: string }` input, returns entity or null
+  - Validates input — returns error message for missing/malformed parameters
+- Created `FindEntitiesByTypeTool` in `packages/ai/src/tools/FindEntitiesByTypeTool.ts`
+  - Takes `RuntimeQuery` interface via constructor
+  - Filters by `{ type: string }` or returns all entities when type omitted
+- Created `GetWorldSnapshotTool` in `packages/ai/src/tools/GetWorldSnapshotTool.ts`
+  - Takes `RuntimeQuery` interface via constructor
+  - Returns `{ entities: [...], entityCount: number }` snapshot
+- All three tools implement the `Tool` interface from `@genesis/ai`
+- Added 23 test cases (covering 8 test groups):
+  - FindEntityTool: populated world (4 tests), empty world (1 test), metadata (1 test)
+  - FindEntitiesByTypeTool: populated world (4 tests), empty world (2 tests), metadata (1 test)
+  - GetWorldSnapshotTool: populated world (2 tests), empty world (1 test), independence (1 test), metadata (1 test)
+  - Registry integration (3 tests)
+  - Backward compatibility (2 tests)
+- Updated runtime tests: added 9 new tests for interface methods (findEntity, findEntities, getWorldSnapshot)
+- All 201 tests pass (23 new tool + 9 new runtime + 169 existing)
+- TypeScript compilation clean, ESLint clean, full project build passes

@@ -244,7 +244,10 @@ RetryPlanner (implements Planner, wraps PlannerProvider)
 ToolCallPlanner (implements Planner, wraps PlannerProvider + ToolRegistry)
   └── ToolRegistry              — tool registration and lookup
         └── Tool (interface)     — name, description, execute()
-              ├── MockFindEntityTool — returns hardcoded entity data
+              ├── FindEntityTool          — backed by RuntimeQuery.findEntity()
+              ├── FindEntitiesByTypeTool  — backed by RuntimeQuery.findEntities()
+              ├── GetWorldSnapshotTool    — backed by RuntimeQuery.getWorldSnapshot()
+              └── MockFindEntityTool      — hardcoded mock (for testing)
         Events: ToolCallStarted, ToolCallFinished
 ```
 
@@ -344,9 +347,12 @@ Return PlannerResult with metadata.tools
 
 ### Current Tools
 
-| Tool | Name | Description |
-|------|------|-------------|
-| MockFindEntityTool | `find_entity` | Returns hardcoded mock entity data (no Runtime access) |
+| Tool | Name | Description | Backend |
+|------|------|-------------|---------|
+| FindEntityTool | `find_entity` | Find an entity by unique ID | RuntimeQuery.findEntity() |
+| FindEntitiesByTypeTool | `find_entities` | Find entities by type (or all) | RuntimeQuery.findEntities() |
+| GetWorldSnapshotTool | `get_world_snapshot` | Get complete world snapshot | RuntimeQuery.getWorldSnapshot() |
+| MockFindEntityTool | `find_entity` | Returns hardcoded mock data (testing) | None (mock) |
 
 ### Tool Layering
 
@@ -354,13 +360,17 @@ Return PlannerResult with metadata.tools
 Pipeline → ToolCallPlanner → PlannerProvider → Concrete Provider
                 ↑
           ToolRegistry → Tool (interface)
-                            ├── MockFindEntityTool (mock data only)
-                            └── (future: Runtime-backed tools)
+                            ├── FindEntityTool → RuntimeQuery (interface, from @genesis/shared)
+                            ├── FindEntitiesByTypeTool → RuntimeQuery
+                            ├── GetWorldSnapshotTool → RuntimeQuery
+                            └── MockFindEntityTool (test only)
 ```
 
 - The AI layer depends only on `Tool` and `ToolRegistry` abstractions
+- Tools depend on `RuntimeQuery` interface (from `@genesis/shared`), not on concrete Runtime
 - No provider directly imports Runtime
 - ToolCallPlanner is additive — existing planners work unchanged
+- `RuntimeQuery` interface is implemented by `@genesis/runtime`
 
 ---
 
@@ -486,7 +496,7 @@ RetryPlanner (implements Planner)
 
 ToolCallPlanner (implements Planner)
   ├── wraps PlannerProvider
-  ├── uses ToolRegistry → Tool
+  ├── uses ToolRegistry → Tool → RuntimeQuery (interface from @genesis/shared)
   └── emits tool events via PipelineEventEmitter
 
 Pipeline → PromptBuilder → PromptModule[]
