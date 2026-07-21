@@ -323,3 +323,40 @@
   - RetryPolicy unit tests (16 tests)
 - All 145 tests pass (50 new + 95 existing)
 - TypeScript compilation clean, ESLint clean, full project build passes
+
+### WO-S3-005 — Tool Calling Foundation
+
+- Created `Tool` interface in `packages/ai/src/tools/Tool.ts`
+  - `name: string` — unique tool identifier
+  - `description: string` — human-readable description
+  - `execute(input: unknown): Promise<unknown>` — callable execution
+  - AI layer depends only on this abstraction (no Runtime dependency)
+- Created `ToolRegistry` interface in `packages/ai/src/tools/ToolRegistry.ts`
+  - `getTools(): Tool[]` — returns all registered tools
+  - `findTool(name: string): Tool | undefined` — lookup by name
+- Created `DefaultToolRegistry` — Map-based implementation with O(1) lookup
+- Created `MockFindEntityTool` in `packages/ai/src/tools/MockFindEntityTool.ts`
+  - Returns hardcoded mock entity data `{ id: 'entity-1', type: 'tree', x: 5, y: 3 }`
+  - No Runtime dependency — pure demonstration tool
+- Created `ToolCallPlanner` in `packages/ai/src/planner/ToolCallPlanner.ts`
+  - Implements `Planner` interface, wraps `PlannerProvider` + `ToolRegistry`
+  - Provider-independent — works with Mock, OpenAI, DeepSeek
+  - Enhances AIRequest with tool descriptions in prompt and tool names in metadata
+  - Emits `ToolCallStarted`/`ToolCallFinished` events during planning
+  - Returns tool info in `PlannerResult.metadata.tools`
+  - Additive — existing planners without tools continue working unchanged
+- Added tool event types to `PipelineEventType`: `ToolCallStarted`, `ToolCallFinished`
+  - Payload includes: `toolNames`, `success`, `tool name`
+- Updated barrel exports: `ToolCallPlanner` from `planner/index.ts`, `Tool`/`ToolRegistry`/`DefaultToolRegistry`/`MockFindEntityTool` from `src/index.ts`
+- Added 33 comprehensive test cases (covering 8 test groups):
+  - DefaultToolRegistry: tool registration (4 tests), registry lookup (4 tests)
+  - MockFindEntityTool: name/description (1 test), data shape (1 test), input independence (1 test)
+  - Planner receives registry (4 tests)
+  - Backward compatibility (4 tests)
+  - Mock tool execution (3 tests)
+  - Event emission (6 tests)
+  - Multiple tools (1 test)
+  - Tool interface contract (3 tests)
+  - Metadata preservation (1 test)
+- All 178 tests pass (33 new + 145 existing)
+- TypeScript compilation clean, ESLint clean, full project build passes

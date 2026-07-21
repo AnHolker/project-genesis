@@ -240,6 +240,12 @@ RetryPlanner (implements Planner, wraps PlannerProvider)
   └── RetryPolicy              — configurable retry policy
         Works with: MockPlannerProvider, OpenAIPlannerProvider, DeepSeekPlannerProvider
         Retry events: PlannerRetryStarted, PlannerRetryFinished
+
+ToolCallPlanner (implements Planner, wraps PlannerProvider + ToolRegistry)
+  └── ToolRegistry              — tool registration and lookup
+        └── Tool (interface)     — name, description, execute()
+              ├── MockFindEntityTool — returns hardcoded entity data
+        Events: ToolCallStarted, ToolCallFinished
 ```
 
 Provider selection is centralized in `ProviderFactory`:
@@ -283,6 +289,78 @@ function createAIConfiguration(env?: Record<string, string | undefined>): AIConf
 - `VITE_AI_MAX_TOKENS` → `maxTokens`
 
 Falls back to `DefaultAIConfiguration` (mock provider) when environment variables are not set.
+
+---
+
+## Tool Calling Architecture
+
+The Tool Calling layer provides a provider-independent abstraction for the Planner to invoke tools during planning.
+
+### Tool Interface
+
+```typescript
+interface Tool {
+  name: string
+  description: string
+  execute(input: unknown): Promise<unknown>
+}
+```
+
+- `name` — unique identifier for referencing the tool
+- `description` — human-readable description for LLM context
+- `execute()` — callable execution that returns any shape of data
+- No dependency on Runtime, World, Entity, or any concrete type
+
+### ToolRegistry Interface
+
+```typescript
+interface ToolRegistry {
+  getTools(): Tool[]
+  findTool(name: string): Tool | undefined
+}
+```
+
+`DefaultToolRegistry` provides a Map-based implementation with O(1) lookup.
+
+### ToolCallPlanner
+
+`ToolCallPlanner` implements `Planner` and wraps a `PlannerProvider` + `ToolRegistry`.
+
+```
+ToolCallPlanner.plan(request)
+    ↓
+Retrieve tools from ToolRegistry
+    ↓
+Enhance AIRequest with tool descriptions in prompt + metadata
+    ↓
+Emit ToolCallStarted (payload: { toolNames })
+    ↓
+Provider.complete(enhancedRequest)
+    ↓
+Emit ToolCallFinished (payload: { toolNames, success })
+    ↓
+Return PlannerResult with metadata.tools
+```
+
+### Current Tools
+
+| Tool | Name | Description |
+|------|------|-------------|
+| MockFindEntityTool | `find_entity` | Returns hardcoded mock entity data (no Runtime access) |
+
+### Tool Layering
+
+```
+Pipeline → ToolCallPlanner → PlannerProvider → Concrete Provider
+                ↑
+          ToolRegistry → Tool (interface)
+                            ├── MockFindEntityTool (mock data only)
+                            └── (future: Runtime-backed tools)
+```
+
+- The AI layer depends only on `Tool` and `ToolRegistry` abstractions
+- No provider directly imports Runtime
+- ToolCallPlanner is additive — existing planners work unchanged
 
 ---
 
@@ -333,14 +411,16 @@ After planning, gameStore stores result:
 ## Event Flow
 
 ```
-Pipeline.execute() with RetryPlanner emits:
+Pipeline.execute() with ToolCallPlanner emits:
   1. PipelineStarted
   2. PromptBuilt          (payload: { prompt })
   3. PlannerStarted
-  4. [PlannerRetryStarted]   ← emitted per retry attempt (payload: { retryCount, validationReason })
-  5. [PlannerRetryFinished]  ← emitted per retry attempt (payload: { retryCount, validationReason })
-  6. PlannerFinished
-  7. PipelineFinished
+  4. ToolCallStarted      (payload: { toolNames })
+  5. ToolCallFinished     (payload: { toolNames, success })
+  6. [PlannerRetryStarted]   ← only if RetryPlanner wraps ToolCallPlanner (payload: { retryCount, validationReason })
+  7. [PlannerRetryFinished]  ← only if RetryPlanner wraps ToolCallPlanner (payload: { retryCount, validationReason })
+  8. PlannerFinished
+  9. PipelineFinished
 
 Pipeline.stream() emits:
   1. PipelineStarted
@@ -403,6 +483,11 @@ RetryPlanner (implements Planner)
   ├── wraps PlannerProvider
   ├── uses RetryPolicy
   └── emits retry events via PipelineEventEmitter
+
+ToolCallPlanner (implements Planner)
+  ├── wraps PlannerProvider
+  ├── uses ToolRegistry → Tool
+  └── emits tool events via PipelineEventEmitter
 
 Pipeline → PromptBuilder → PromptModule[]
                               ├── SystemPromptModule (no deps)

@@ -218,9 +218,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | High |
-| **Reason** | AI has no way to query runtime state, memory, or available actions during planning. Every plan is a single-shot completion. No function-calling or tool-use pattern exists. |
-| **Suggested Sprint** | Sprint 3 |
+| **Priority** | ~~High~~ **Resolved** |
+| **Reason** | ~~AI has no way to query runtime state, memory, or available actions during planning. Every plan is a single-shot completion. No function-calling or tool-use pattern exists.~~ |
+| **Suggested Sprint** | ~~Sprint 3~~ **Completed in WO-S3-005** |
+| **Resolution** | Tool/ToolRegistry interfaces created in AI layer. ToolCallPlanner wraps any PlannerProvider with tool support. MockFindEntityTool returns hardcoded entity data. Tool events (ToolCallStarted/ToolCallFinished) emitted. No Runtime dependency. Agent Loop integration deferred to future sprint. |
 
 ---
 

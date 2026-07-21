@@ -5,6 +5,8 @@ export type PipelineEventType =
   | 'StreamChunk'
   | 'PlannerRetryStarted'
   | 'PlannerRetryFinished'
+  | 'ToolCallStarted'
+  | 'ToolCallFinished'
   | 'PlannerFinished'
   | 'PipelineFinished'
 
