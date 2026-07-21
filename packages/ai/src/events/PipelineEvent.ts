@@ -9,6 +9,8 @@ export type PipelineEventType =
   | 'ToolCallFinished'
   | 'PlannerFinished'
   | 'PipelineFinished'
+  | 'ToolExecuted'
+  | 'ObservationRecorded'
   | 'AgentLoopStarted'
   | 'LoopIterationStarted'
   | 'LoopIterationFinished'

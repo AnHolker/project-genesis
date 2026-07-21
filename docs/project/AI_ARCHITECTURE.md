@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.13)
+> Project Genesis — AI Architecture Reference (v0.14)
 > Primary reference for all AI development.
 
 ---
@@ -377,9 +377,9 @@ Pipeline → ToolCallPlanner → PlannerProvider → Concrete Provider
 
 ---
 
-## Agent Loop Foundation
+## Agent Loop (Multi-Step)
 
-The Agent Loop provides an abstraction for iterative AI reasoning. It establishes the **loop contract** without enabling multi-iteration execution — that capability is deferred to future work orders.
+The Agent Loop provides an abstraction for iterative AI reasoning. Since WO-S3-010, `DefaultAgentLoop` supports true multi-step execution with tool calling.
 
 ### Architecture
 
@@ -388,19 +388,24 @@ AgentLoop.execute(context)
     ↓
 AgentLoopContext { request, planner, toolRegistry?, maxIterations }
     ↓
-Emitter: AgentLoopStarted
+Emit: AgentLoopStarted
     ↓
-Emitter: LoopIterationStarted (iteration 1)
+for iteration = 1 to maxIterations:
+  ├── Emit: LoopIterationStarted
+  ├── planner.plan(request) → PlannerResult
+  ├── actions.length > 0? → Yes: break (finished = true)
+  ├── No → toolCalls in metadata AND toolRegistry?
+  │         ├── Yes: for each toolCall:
+  │         │       ├── Emit: ToolExecuted
+  │         │       ├── tool.execute(input) → output
+  │         │       └── Emit: ObservationRecorded
+  │         │       Append observations to request
+  │         └── No: break (finished = false)
+  └── Emit: LoopIterationFinished
     ↓
-planner.plan(request) → PlannerResult
+AgentLoopResult { plannerResult, steps: [LoopStep...], iterations, finished }
     ↓
-LoopStep { iteration: 1, plannerResult }
-    ↓
-Emitter: LoopIterationFinished
-    ↓
-AgentLoopResult { plannerResult, steps: [LoopStep], iterations: 1, finished: true }
-    ↓
-Emitter: AgentLoopFinished
+Emit: AgentLoopFinished
     ↓
 Return AgentLoopResult
 ```
@@ -408,10 +413,11 @@ Return AgentLoopResult
 ### Key Design Decisions
 
 1. **Pipeline integration** — Since WO-S3-009, `DefaultPipeline.execute()` and `DefaultPipeline.stream()` use `AgentLoop.execute()` internally. Pipeline remains the only AI entry point; AgentLoop is the planning layer beneath it.
-2. **Single iteration** — DefaultAgentLoop executes exactly 1 iteration (`iterations === 1`). No `while()`, no multi-turn tool calling, no reflection.
-3. **Event-driven** — Four new events (`AgentLoopStarted`, `LoopIterationStarted`, `LoopIterationFinished`, `AgentLoopFinished`) provide observability without coupling.
-4. **Future-ready** — `LoopStep` supports `thought`, `toolName`, `toolInput`, `toolOutput`, `plannerResult` for future multi-iteration recording.
-5. **No Runtime dependency** — AgentLoopContext accepts `request`, `planner`, and optional `toolRegistry`. It has no reference to Runtime.
+2. **Multi-step execution** — Since WO-S3-010, `DefaultAgentLoop` supports true multi-step execution. It calls `planner.plan()` in a loop, checking for final actions, executing tools, and feeding back observations.
+3. **Stop conditions** — Two stop conditions: Planner returns non-empty actions, or maxIterations reached.
+4. **Tool call detection** — Tool calls are read from `PlannerResult.metadata.toolCalls`. Each tool is executed via `ToolRegistry` and observations are recorded in `LoopStep`.
+5. **Events** — Six events (`AgentLoopStarted`, `LoopIterationStarted`, `ToolExecuted`, `ObservationRecorded`, `LoopIterationFinished`, `AgentLoopFinished`) provide full observability.
+6. **No Runtime dependency** — AgentLoopContext accepts `request`, `planner`, and optional `toolRegistry`. It has no reference to Runtime.
 
 ### Compatibility
 
@@ -426,20 +432,23 @@ Return AgentLoopResult
 
 ### Events
 
-| Event | Payload | When |
-|-------|---------|------|
+| Event | Enhanced Payload | When |
+|-------|-----------------|------|
 | `AgentLoopStarted` | `{ maxIterations }` | Before any planning |
 | `LoopIterationStarted` | `{ iteration, maxIterations }` | Before each iteration |
+| `ToolExecuted` | `{ toolName, toolInput, success? }` | After each tool execution |
+| `ObservationRecorded` | `{ toolName, toolInput, toolOutput, success? }` | After each observation |
 | `LoopIterationFinished` | `{ iteration }` | After each iteration |
 | `AgentLoopFinished` | `{ iterations, finished }` | After all iterations |
 
 ### Future (Not Yet Implemented)
 
-- Multi-iteration loop (`while` with maxIterations cap)
-- Multi-turn Tool Calling through AgentLoop
 - Reflection (self-critique)
-- Pipeline → AgentLoop integration
 - Context compression between iterations
+- Replay
+- Memory Ranking
+- Parallel Tool Calling
+- Human Approval
 
 ## Prompt Generation Flow
 
@@ -510,8 +519,11 @@ Pipeline.stream() emits:
 DefaultAgentLoop.execute() emits (independent of Pipeline):
   1. AgentLoopStarted        (payload: { maxIterations })
   2. LoopIterationStarted    (payload: { iteration, maxIterations })
-  3. LoopIterationFinished   (payload: { iteration })
-  4. AgentLoopFinished       (payload: { iterations, finished })
+  3. [ToolExecuted]           (payload: { toolName, toolInput, success? })  ← only if tools executed
+  4. [ObservationRecorded]    (payload: { toolName, toolInput, toolOutput, success? })  ← only if tools executed
+  5. LoopIterationFinished   (payload: { iteration })
+  ... (repeated for each iteration)
+  6. AgentLoopFinished       (payload: { iterations, finished })
 ```
 
 - Events are fire-and-forget — Pipeline never waits for listeners

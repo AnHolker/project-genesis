@@ -507,3 +507,36 @@
 - TypeScript 0 errors, ESLint 0 errors
 - No Planner, Provider, Runtime, or Renderer modifications
 - No breaking changes to any Public API
+
+### WO-S3-010 — Multi-Step Agent Loop
+
+- Refactored `DefaultAgentLoop` from single-iteration to multi-step execution loop
+  - Each iteration: `planner.plan()` → check actions → execute tools → observe → repeat
+  - Two stop conditions: Planner returns non-empty actions, or `maxIterations` reached
+  - Tool calls read from `PlannerResult.metadata.toolCalls`
+  - Observations appended to request prompt for next iteration
+- Added 2 new event types to `PipelineEventType`:
+  - `ToolExecuted` — payload: `{ toolName, toolInput, success? }`
+  - `ObservationRecorded` — payload: `{ toolName, toolInput, toolOutput, success? }`
+- `LoopStep` fields (`toolName`, `toolInput`, `toolOutput`) now populated during tool execution
+- Tool error handling: tool not found, execution failure, empty/non-array toolCalls
+- No changes to Planner, PlannerProvider, ToolCallPlanner, RetryPlanner, Pipeline, Runtime, or Renderer
+- Added 69 new test cases in `AgentLoopMultiStep.test.ts` (covering 16 test groups):
+  - Multi-Step Loop (6 tests): 1/2/3 iterations, empty actions, no toolRegistry, maxIterations
+  - maxIterations Edge Cases (4 tests): boundary, enforcement, exact match
+  - Observation Recording (6 tests): toolName, toolInput, toolOutput, tool not found, tool error, multiple tools
+  - Loop History (5 tests): step count, iteration indices, plannerResult preservation, tool fields, finished status
+  - Event Emission ToolExecuted/ObservationRecorded (7 tests): event types, payloads, order, failure scenarios
+  - Event Emission Complete Chain (5 tests): all event types, correct count, order, timestamps
+  - Stop Conditions (6 tests): actions, maxIterations, no toolCalls, no toolRegistry, maxIterations enforcement, finished status
+  - Tool Execution Integration (5 tests): correct input, multiple calls, observation feedback, tool error, multiple tools
+  - RetryPlanner Compatibility (4 tests): multi-step loop, metadata preservation, RetryPolicy, retry events
+  - ToolCallPlanner Compatibility (4 tests): multi-step loop, metadata, tools, event isolation
+  - Backward Compatibility (8 tests): iterations=1, finished=true, steps length, event count, multiple executions
+  - StreamingPlannerProvider Compatibility (1 test): complete() method
+  - Edge Cases (6 tests): empty registry, empty toolCalls, non-array toolCalls, null metadata, event emitter isolation, many iterations
+  - Tool Call Planning Verification (2 tests): observation serialization, original prompt preservation
+- Created ADR-0027: Multi-Step Agent Loop
+- Updated PROJECT_STATE.md (v0.14), AI_ARCHITECTURE.md (v0.14)
+- All 420 tests pass (351 existing + 69 new)
+- TypeScript 0 errors, ESLint 0 errors

@@ -16,11 +16,11 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.13 |
+| Architecture Version | v0.14 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step) |
 | Prompt Pipeline | Complete — SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
@@ -84,6 +84,7 @@
 | WO-S3-007 | Provider-native Tool Calling |
 | WO-S3-008 | Agent Loop Foundation |
 | WO-S3-009 | Pipeline Agent Loop Integration |
+| WO-S3-010 | Multi-Step Agent Loop |
 
 ---
 
@@ -294,8 +295,10 @@ interface LoopStep {
 }
 
 class DefaultAgentLoop implements AgentLoop {
-  // Executes exactly ONE iteration (foundation for future multi-loop)
-  // Emits: AgentLoopStarted → LoopIterationStarted → LoopIterationFinished → AgentLoopFinished
+  // Multi-step execution with tool calling support
+  // Each iteration: plan → check actions → execute tools → observe → repeat
+  // Stop conditions: Planner returns actions, or maxIterations reached
+  // Events: AgentLoopStarted → LoopIterationStarted → [ToolExecuted] → [ObservationRecorded] → LoopIterationFinished → ... → AgentLoopFinished
 }
 ```
 
@@ -497,6 +500,9 @@ Key remaining items:
 | ADR-0022 | Tool Calling Foundation | `docs/adr/ADR-0022-tool-calling.md` |
 | ADR-0023 | Runtime Tool Execution | `docs/adr/ADR-0023-runtime-tool-execution.md` |
 | ADR-0024 | Provider-native Tool Calling | `docs/adr/ADR-0024-provider-native-tool-calling.md` |
+| ADR-0025 | Agent Loop Foundation | `docs/adr/ADR-0025-agent-loop-foundation.md` |
+| ADR-0026 | Pipeline Agent Loop Integration | `docs/adr/ADR-0026-pipeline-agent-loop-integration.md` |
+| ADR-0027 | Multi-Step Agent Loop | `docs/adr/ADR-0027-multi-step-agent-loop.md` |
 
 ---
 
