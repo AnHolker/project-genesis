@@ -20,7 +20,7 @@
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop |
 | Prompt Pipeline | Complete — SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
@@ -82,6 +82,7 @@
 | WO-S3-005 | Tool Calling Foundation |
 | WO-S3-006 | Runtime Tool Execution |
 | WO-S3-007 | Provider-native Tool Calling |
+| WO-S3-008 | Agent Loop Foundation |
 
 ---
 
@@ -227,6 +228,10 @@ type PipelineEventType =
   | 'ToolCallFinished'
   | 'PlannerFinished'
   | 'PipelineFinished'
+  | 'AgentLoopStarted'
+  | 'LoopIterationStarted'
+  | 'LoopIterationFinished'
+  | 'AgentLoopFinished'
 
 interface PipelineEvent {
   type: PipelineEventType
@@ -253,6 +258,44 @@ interface StreamingPlannerProvider extends PlannerProvider {
 }
 
 class MockStreamingProvider implements PlannerProvider, StreamingPlannerProvider { /* char-by-char streaming */ }
+```
+
+### AgentLoop
+
+```typescript
+interface AgentLoop {
+  execute(context: AgentLoopContext): Promise<AgentLoopResult>
+}
+
+interface AgentLoopContext {
+  request: AIRequest
+  planner: Planner
+  toolRegistry?: ToolRegistry
+  maxIterations: number
+  metadata?: Record<string, unknown>
+}
+
+interface AgentLoopResult {
+  plannerResult: PlannerResult
+  steps: LoopStep[]
+  iterations: number
+  finished: boolean
+  reasoning?: string
+}
+
+interface LoopStep {
+  iteration: number
+  thought?: string
+  toolName?: string
+  toolInput?: unknown
+  toolOutput?: unknown
+  plannerResult?: PlannerResult
+}
+
+class DefaultAgentLoop implements AgentLoop {
+  // Executes exactly ONE iteration (foundation for future multi-loop)
+  // Emits: AgentLoopStarted → LoopIterationStarted → LoopIterationFinished → AgentLoopFinished
+}
 ```
 
 ### Memory
@@ -307,8 +350,17 @@ Renderer.renderWorld(ctx, world)     ← reads World, draws to Canvas
 Events (fire-and-forget during Pipeline execution):
   PipelineStarted → PromptBuilt → PlannerStarted → PlannerFinished → PipelineFinished
 
+  During streaming (when using Pipeline.stream()):
+    StreamChunk (emitted while provider generates response)
+
   During retry (when using RetryPlanner):
     PlannerRetryStarted → PlannerRetryFinished (emitted per retry attempt)
+
+  During tool calling (when using ToolCallPlanner):
+    ToolCallStarted → ToolCallFinished (emitted per planning request)
+
+  During agent loop (when using DefaultAgentLoop):
+    AgentLoopStarted → LoopIterationStarted → LoopIterationFinished → AgentLoopFinished
 
 Memory (optional, in PipelineContext):
   DefaultMemory stores conversation history under "conversation" key

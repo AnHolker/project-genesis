@@ -9,6 +9,10 @@ export type PipelineEventType =
   | 'ToolCallFinished'
   | 'PlannerFinished'
   | 'PipelineFinished'
+  | 'AgentLoopStarted'
+  | 'LoopIterationStarted'
+  | 'LoopIterationFinished'
+  | 'AgentLoopFinished'
 
 export interface PipelineEvent {
   type: PipelineEventType

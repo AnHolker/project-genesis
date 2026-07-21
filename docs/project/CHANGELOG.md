@@ -447,3 +447,35 @@
 - `PlannerProvider` interface unchanged — `ToolCallingProvider` added as extension
 - `Pipeline`, `Planner`, `PromptBuilder`, `Runtime` interfaces unchanged
 - `ToolCallPlanner` enhanced with routing logic (fully backward compatible)
+
+### WO-S3-008 — Agent Loop Foundation
+
+- Created `packages/ai/src/agent/` module with:
+  - `AgentLoop` interface — single `execute(context): Promise<AgentLoopResult>` contract
+  - `AgentLoopContext` — data object with `request`, `planner`, `toolRegistry?`, `maxIterations`, `metadata?`
+  - `AgentLoopResult` — result with `plannerResult`, `steps`, `iterations`, `finished`, `reasoning?`
+  - `LoopStep` — iteration record with `iteration`, `thought?`, `toolName?`, `toolInput?`, `toolOutput?`, `plannerResult?`
+  - `DefaultAgentLoop` — single-iteration implementation (foundation for future multi-loop)
+- Added 4 new event types to `PipelineEventType`:
+  - `AgentLoopStarted` — payload: `{ maxIterations }`
+  - `LoopIterationStarted` — payload: `{ iteration, maxIterations }`
+  - `LoopIterationFinished` — payload: `{ iteration }`
+  - `AgentLoopFinished` — payload: `{ iterations, finished }`
+- Exported all new types via barrel exports (`agent/index.ts` and main `index.ts`)
+- Created ADR-0025: Agent Loop Foundation
+- Added 49 new test cases (covering 11 test groups):
+  - AgentLoop Interface (4 tests): interface conformance, context/result/step shapes
+  - Single Iteration (6 tests): iterations=1, finished=true, correct actions, reasoning, empty actions
+  - Step History (4 tests): steps length, iteration index, plannerResult matching, optional fields
+  - Event Emission (9 tests): all 4 events emitted, correct order, payloads, timestamps
+  - MockPlanner Compatibility (4 tests): tree/move/unknown keywords through MockPlannerProvider
+  - RetryPlanner Compatibility (3 tests): valid provider, metadata preservation, RetryPolicy config
+  - ToolCallPlanner Compatibility (4 tests): with/without tools, empty registry, metadata preservation
+  - StreamingPlannerProvider Compatibility (2 tests): complete() method, correct actions
+  - Future Extension (3 tests): LoopStep thought/tool fields, multi-step scenario
+  - AgentLoopContext Configuration (5 tests): custom maxIterations, metadata, toolRegistry, request passthrough
+  - Event Edge Cases & Multiple Executions (5 tests): event count, fresh subscribers, re-execution
+- All 304 tests pass (49 new + 255 existing)
+- TypeScript 0 errors, ESLint 0 errors
+- No Pipeline, Planner, Provider, or Runtime modifications
+- No breaking changes to any Public API

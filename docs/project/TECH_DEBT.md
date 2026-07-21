@@ -260,7 +260,7 @@
 | Field | Value |
 |-------|-------|
 | **Priority** | Medium |
-| **Reason** | Planning is single-shot — one input produces one PlannerResult. No iterative refinement, no intermediate feedback, no plan correction loop. |
+| **Reason** | Planning is single-shot — one input produces one PlannerResult. No iterative refinement, no intermediate feedback, no plan correction loop. Agent Loop foundation (WO-S3-008) establishes the abstraction layer. Multi-iteration execution requires future WO. |
 | **Suggested Sprint** | Sprint 4 |
 
 ---
@@ -269,9 +269,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | Medium |
-| **Reason** | No loop exists for multi-step AI reasoning. AI cannot decompose "build a house" into sequence of actions, observe results, and adjust. Requires PlannerProvider interface changes. |
-| **Suggested Sprint** | Sprint 4 |
+| **Priority** | ~~Medium~~ **Resolved (Foundation)** |
+| **Reason** | ~~No loop exists for multi-step AI reasoning. AI cannot decompose "build a house" into sequence of actions, observe results, and adjust. Requires PlannerProvider interface changes.~~ |
+| **Suggested Sprint** | ~~Sprint 4~~ **Foundation completed in WO-S3-008** |
+| **Resolution** | AgentLoop interface, DefaultAgentLoop (single-iteration), LoopStep, AgentLoopContext, AgentLoopResult, and 4 new event types created. ADR-0025 documents the design. Multi-iteration execution and Pipeline integration deferred to future work orders. |
 
 ---
 

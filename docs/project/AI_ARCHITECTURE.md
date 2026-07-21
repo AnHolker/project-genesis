@@ -374,6 +374,70 @@ Pipeline → ToolCallPlanner → PlannerProvider → Concrete Provider
 
 ---
 
+## Agent Loop Foundation
+
+The Agent Loop provides an abstraction for iterative AI reasoning. It establishes the **loop contract** without enabling multi-iteration execution — that capability is deferred to future work orders.
+
+### Architecture
+
+```
+AgentLoop.execute(context)
+    ↓
+AgentLoopContext { request, planner, toolRegistry?, maxIterations }
+    ↓
+Emitter: AgentLoopStarted
+    ↓
+Emitter: LoopIterationStarted (iteration 1)
+    ↓
+planner.plan(request) → PlannerResult
+    ↓
+LoopStep { iteration: 1, plannerResult }
+    ↓
+Emitter: LoopIterationFinished
+    ↓
+AgentLoopResult { plannerResult, steps: [LoopStep], iterations: 1, finished: true }
+    ↓
+Emitter: AgentLoopFinished
+    ↓
+Return AgentLoopResult
+```
+
+### Key Design Decisions
+
+1. **Standalone capability** — AgentLoop is not inserted into Pipeline. It is a new independent abstraction that consumers can opt into.
+2. **Single iteration** — DefaultAgentLoop executes exactly 1 iteration (`iterations === 1`). No `while()`, no multi-turn tool calling, no reflection.
+3. **Event-driven** — Four new events (`AgentLoopStarted`, `LoopIterationStarted`, `LoopIterationFinished`, `AgentLoopFinished`) provide observability without coupling.
+4. **Future-ready** — `LoopStep` supports `thought`, `toolName`, `toolInput`, `toolOutput`, `plannerResult` for future multi-iteration recording.
+5. **No Runtime dependency** — AgentLoopContext accepts `request`, `planner`, and optional `toolRegistry`. It has no reference to Runtime.
+
+### Compatibility
+
+| Component | Compatible | Notes |
+|-----------|-----------|-------|
+| MockPlanner | ✅ | DefaultAgentLoop accepts any Planner |
+| RetryPlanner | ✅ | Retry events fire inside Planner, loop events fire around it |
+| ToolCallPlanner | ✅ | Tool events fire inside Planner, loop events fire around it |
+| MockStreamingProvider | ✅ | Streaming provider's `complete()` used through Planner |
+| OpenAIPlannerProvider | ✅ | Works through MockPlanner wrapper |
+| DeepSeekPlannerProvider | ✅ | Works through MockPlanner wrapper |
+
+### Events
+
+| Event | Payload | When |
+|-------|---------|------|
+| `AgentLoopStarted` | `{ maxIterations }` | Before any planning |
+| `LoopIterationStarted` | `{ iteration, maxIterations }` | Before each iteration |
+| `LoopIterationFinished` | `{ iteration }` | After each iteration |
+| `AgentLoopFinished` | `{ iterations, finished }` | After all iterations |
+
+### Future (Not Yet Implemented)
+
+- Multi-iteration loop (`while` with maxIterations cap)
+- Multi-turn Tool Calling through AgentLoop
+- Reflection (self-critique)
+- Pipeline → AgentLoop integration
+- Context compression between iterations
+
 ## Prompt Generation Flow
 
 ```
@@ -439,6 +503,12 @@ Pipeline.stream() emits:
   4. StreamChunk          (payload: { chunk })  ← one per text chunk from provider
   5. PlannerFinished
   6. PipelineFinished
+
+DefaultAgentLoop.execute() emits (independent of Pipeline):
+  1. AgentLoopStarted        (payload: { maxIterations })
+  2. LoopIterationStarted    (payload: { iteration, maxIterations })
+  3. LoopIterationFinished   (payload: { iteration })
+  4. AgentLoopFinished       (payload: { iterations, finished })
 ```
 
 - Events are fire-and-forget — Pipeline never waits for listeners
