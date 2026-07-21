@@ -48,9 +48,21 @@ function handleSend() {
         type="text"
         placeholder="输入指令... (例如: 增加一棵树)"
         class="input"
+        :disabled="store.isStreaming"
         @keyup.enter="handleSend"
       />
-      <button class="btn" @click="handleSend">发送</button>
+      <button class="btn" :disabled="store.isStreaming" @click="handleSend">发送</button>
+      <label class="toggle">
+        <input type="checkbox" v-model="store.useStreaming" />
+        <span>Streaming</span>
+      </label>
+    </div>
+    <div v-if="store.isStreaming || store.streamingText" class="streaming-panel">
+      <div class="streaming-header">
+        <span v-if="store.isStreaming" class="streaming-indicator">⏳ Generating...</span>
+        <span v-else-if="store.streamingFinished" class="streaming-done">✓ Done</span>
+      </div>
+      <pre class="streaming-text">{{ store.streamingText }}</pre>
     </div>
     <div class="log" v-if="store.log.length">
       <div v-for="(entry, i) in store.log" :key="i" class="log-entry">{{ entry }}</div>
@@ -100,6 +112,7 @@ h1 {
   gap: 0.5rem;
   width: 100%;
   max-width: 600px;
+  align-items: center;
 }
 
 .input {
@@ -117,6 +130,11 @@ h1 {
   border-color: #2E8B57;
 }
 
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .btn {
   padding: 0.6rem 1.2rem;
   border: none;
@@ -130,6 +148,68 @@ h1 {
 
 .btn:hover {
   background: #3aa86a;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #888;
+  user-select: none;
+}
+
+.toggle input[type="checkbox"] {
+  accent-color: #2E8B57;
+}
+
+.streaming-panel {
+  width: 100%;
+  max-width: 600px;
+  background: #111;
+  border: 1px solid #333;
+  border-radius: 6px;
+  padding: 0.75rem;
+  text-align: left;
+}
+
+.streaming-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.streaming-indicator {
+  color: #f0ad4e;
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.streaming-done {
+  color: #2E8B57;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.streaming-text {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.75rem;
+  color: #999;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 120px;
+  overflow-y: auto;
+  margin: 0;
 }
 
 .log {

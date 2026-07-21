@@ -47,13 +47,17 @@ The **only** AI entry point. Orchestrates the flow from user input to planner re
 
 ```
 Pipeline.execute(context: PipelineContext): Promise<PipelineContext>
+Pipeline.stream(context: PipelineContext): Promise<PipelineContext>
 ```
 
 - Receives `PipelineContext` with user input
 - Delegates prompt construction to `PromptBuilder`
 - Delegates planning to `Planner`
 - Emits lifecycle events through `PipelineEventEmitter`
-- Returns enriched `PipelineContext` with `plannerResult`
+- `stream()` emits `StreamChunk` events while the provider generates the response
+- If the provider supports `StreamingPlannerProvider`, `stream()` uses streaming; otherwise falls back to `Planner.plan()`
+- Both methods return enriched `PipelineContext` with `plannerResult`
+- `stream()` is visualization only — Runtime executes only after stream completes and validation passes
 
 ### PipelineContext
 
@@ -214,11 +218,18 @@ PlannerProvider (interface)
   │     Uses: client.responses.create()
   │     Requires: apiKey, model
   │     Output: JSON with { actions: [...] }
+  │     Also implements: StreamingPlannerProvider (stream via client.responses.create({ stream: true }))
   │
   └── DeepSeekPlannerProvider   — DeepSeek Chat Completions API
         Uses: client.chat.completions.create() (OpenAI-compatible)
         Requires: apiKey, baseURL, model
         Output: JSON with { actions: [...] }
+        Also implements: StreamingPlannerProvider (stream via client.chat.completions.create({ stream: true }))
+
+StreamingPlannerProvider (interface, extends PlannerProvider)
+  └── MockStreamingProvider     — char-by-char streaming for testing
+        OpenAIPlannerProvider    — also implements StreamingPlannerProvider
+        DeepSeekPlannerProvider  — also implements StreamingPlannerProvider
 ```
 
 Provider selection is centralized in `ProviderFactory`:
@@ -318,6 +329,14 @@ Pipeline.execute() emits:
   3. PlannerStarted
   4. PlannerFinished
   5. PipelineFinished
+
+Pipeline.stream() emits:
+  1. PipelineStarted
+  2. PromptBuilt          (payload: { prompt })
+  3. PlannerStarted
+  4. StreamChunk          (payload: { chunk })  ← one per text chunk from provider
+  5. PlannerFinished
+  6. PipelineFinished
 ```
 
 - Events are fire-and-forget — Pipeline never waits for listeners

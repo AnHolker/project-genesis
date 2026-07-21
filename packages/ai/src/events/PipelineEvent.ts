@@ -2,6 +2,7 @@ export type PipelineEventType =
   | 'PipelineStarted'
   | 'PromptBuilt'
   | 'PlannerStarted'
+  | 'StreamChunk'
   | 'PlannerFinished'
   | 'PipelineFinished'
 

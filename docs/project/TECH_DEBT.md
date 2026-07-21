@@ -185,9 +185,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | Low |
-| **Reason** | Both OpenAIPlannerProvider and DeepSeekPlannerProvider wait for the full response before parsing. Streaming would reduce perceived latency for long responses. Requires changes to PlannerProvider interface (currently returns `Promise<PlannerResult>`, not `AsyncIterable`). |
-| **Suggested Sprint** | Sprint 4 |
+| **Priority** | ~~Low~~ **Resolved** |
+| **Reason** | ~~Both OpenAIPlannerProvider and DeepSeekPlannerProvider wait for the full response before parsing. Streaming would reduce perceived latency for long responses. Requires changes to PlannerProvider interface (currently returns `Promise<PlannerResult>`, not `AsyncIterable`).~~ |
+| **Suggested Sprint** | ~~Sprint 4~~ **Completed in WO-S3-001 through WO-S3-003** |
+| **Resolution** | StreamingPlannerProvider interface added (WO-S3-001). Pipeline.stream() and StreamChunk events implemented (WO-S3-002). Web UI integration with reactive streaming state completed (WO-S3-003). |
 
 ---
 
@@ -205,9 +206,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | High |
-| **Reason** | Both providers wait for full response. No partial/streaming action generation. User cannot see progress during long planning cycles. Requires PlannerProvider interface extension. |
-| **Suggested Sprint** | Sprint 3 |
+| **Priority** | ~~High~~ **Resolved** |
+| **Reason** | ~~Both providers wait for full response. No partial/streaming action generation. User cannot see progress during long planning cycles. Requires PlannerProvider interface extension.~~ |
+| **Suggested Sprint** | ~~Sprint 3~~ **Completed in WO-S3-001 through WO-S3-003** |
+| **Resolution** | StreamingPlannerProvider interface, Pipeline.stream(), StreamChunk events, and Streaming UI integration all implemented. OpenAI and DeepSeek providers support streaming. MockStreamingProvider added for testing. |
 
 ---
 

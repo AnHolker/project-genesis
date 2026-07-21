@@ -7,7 +7,7 @@
 
 ## Current Sprint
 
-**Sprint 2** — AI Foundation (Frozen)
+**Sprint 3** — AI Integration & Polish (In Progress)
 
 ---
 
@@ -15,14 +15,15 @@
 
 | Item | Status |
 |------|--------|
-| Status | Sprint 2 Frozen |
-| Architecture Version | v0.8 |
+| Status | Sprint 3 In Progress |
+| Architecture Version | v0.9 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator — Ready for Real Integration |
+| AI Status | Provider Architecture Complete + Streaming Pipeline — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider |
 | Prompt Pipeline | Complete — SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
+| Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
 | Backend Status | None |
 | Networking Status | None |
@@ -70,6 +71,14 @@
 | WO-S2-019 | System Prompt Module |
 | WO-S2-020 | World State Prompt Module |
 
+### Sprint 3 — AI Integration & Polish
+
+| ID | Title |
+|----|-------|
+| WO-S3-001 | Streaming Provider Interface |
+| WO-S3-002 | Streaming Pipeline |
+| WO-S3-003 | Streaming UI Integration |
+
 ---
 
 ## Runtime Public API
@@ -107,6 +116,7 @@ Runtime()
 ```typescript
 interface Pipeline {
   execute(context: PipelineContext): Promise<PipelineContext>
+  stream(context: PipelineContext): Promise<PipelineContext>
 }
 ```
 
@@ -206,6 +216,7 @@ type PipelineEventType =
   | 'PipelineStarted'
   | 'PromptBuilt'
   | 'PlannerStarted'
+  | 'StreamChunk'
   | 'PlannerFinished'
   | 'PipelineFinished'
 
@@ -224,6 +235,16 @@ class PipelineEventEmitter {
   unsubscribe(listener: PipelineEventListener): void
   emit(event: PipelineEvent): void
 }
+```
+
+### StreamingPlannerProvider
+
+```typescript
+interface StreamingPlannerProvider extends PlannerProvider {
+  stream(request: AIRequest): AsyncIterable<string>
+}
+
+class MockStreamingProvider implements PlannerProvider, StreamingPlannerProvider { /* char-by-char streaming */ }
 ```
 
 ### Memory
@@ -370,7 +391,7 @@ Key remaining items:
 - Runtime runs in main thread (no Worker Runtime)
 - No server-side Runtime
 - Prompt versioning missing
-- Streaming not implemented
+- ~~Streaming not implemented~~ **Resolved in WO-S3-001 through WO-S3-003**
 - Provider retry policy absent
 - No conversation memory persistence
 - System prompt context window not tracked
@@ -404,6 +425,7 @@ Key remaining items:
 | ADR-0017 | Environment Configuration | `docs/adr/ADR-0017-environment-configuration.md` |
 | ADR-0018 | System Prompt Module | `docs/adr/ADR-0018-system-prompt-module.md` |
 | ADR-0019 | Responses API Migration | `docs/adr/ADR-0019-responses-api-migration.md` |
+| ADR-0020 | Streaming UI Integration | `docs/adr/ADR-0020-streaming-ui-integration.md` |
 
 ---
 

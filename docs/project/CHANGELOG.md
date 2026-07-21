@@ -249,3 +249,42 @@
 - Created `WorldStatePromptModule.test.ts` for isolated module testing
 - Updated snapshots to include WorldStatePromptModule in prompt composition
 - Architecture decision: world state is injected via PipelineContext, not queried by PromptModule (keeps decoupling)
+
+---
+
+## Sprint 3 — AI Integration & Polish
+
+### WO-S3-001 — Streaming Provider Interface
+
+- Created `StreamingPlannerProvider` interface extending `PlannerProvider` with `stream(request): AsyncIterable<string>`
+- Added `MockStreamingProvider` implementing both `PlannerProvider` and `StreamingPlannerProvider`
+- OpenAIPlannerProvider and DeepSeekPlannerProvider now implement `StreamingPlannerProvider`
+- Both LLM providers support streaming via their respective SDK streaming APIs
+- Backward compatible — `PlannerProvider` interface unchanged
+- Added 18 streaming provider tests
+
+### WO-S3-002 — Streaming Pipeline
+
+- Added `Pipeline.stream(context): Promise<PipelineContext>` method to Pipeline interface
+- `DefaultPipeline.stream()` checks if provider implements `StreamingPlannerProvider`
+- If yes: streams chunks, emits `StreamChunk` events, assembles JSON, validates via `StructuredOutputValidator`
+- If no: falls back to `Planner.plan()` (non-streaming)
+- `StreamChunk` event type added to `PipelineEventType`
+- Streaming error handling: returns `{ actions: [], reasoning: "Streaming error: ..." }` on failure
+- Added 13 streaming pipeline tests
+- All 95 existing tests continue passing
+
+### WO-S3-003 — Streaming UI Integration
+
+- Added reactive streaming state to `gameStore`: `isStreaming`, `streamingText`, `streamingFinished`
+- Added `useStreaming` toggle ref — configurable streaming mode (default: off)
+- Subscribed to `StreamChunk` events via `PipelineEventListener` during streaming
+- `sendStreaming()` method: subscribes listener, calls `pipeline.stream()`, accumulates text, applies result
+- Error handling: clears streaming state, logs error, falls back to `pipeline.execute()`
+- Provider passed to `DefaultPipeline` constructor for runtime streaming detection
+- Updated `App.vue`: streaming panel with progress indicator, streaming toggle, disabled input during streaming
+- Added vitest config and test infrastructure for web app
+- Added 15 streaming UI integration tests
+- All 119 tests pass (95 AI + 9 Runtime + 15 Web)
+- TypeScript, build, lint all pass
+- Created ADR-0020
