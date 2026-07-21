@@ -497,7 +497,104 @@ RetryPlanner (implements Planner)
 ToolCallPlanner (implements Planner)
   ├── wraps PlannerProvider
   ├── uses ToolRegistry → Tool → RuntimeQuery (interface from @genesis/shared)
+  ├── detects ToolCallingProvider (native tool calling)
+  │     └── routes to completeWithTools() when available
+  │     └── falls back to prompt-based injection for non-native providers
   └── emits tool events via PipelineEventEmitter
+
+### Provider Native Tool Calling
+
+When a provider implements `ToolCallingProvider` (extends `PlannerProvider`), the tool calling lifecycle shifts from the Planner level into the Provider level:
+
+```
+ToolCallPlanner.plan()
+    ↓
+Detects ToolCallingProvider
+    ↓
+Calls provider.completeWithTools(request, tools)
+    ↓
+Provider converts Tool[] → Provider-specific schema
+    ↓
+Sends prompt + tool schemas to LLM
+    ↓
+LLM returns function calls
+    ↓
+Provider executes Tool instances
+    ↓
+Provider sends results back to LLM
+    ↓
+LLM returns final response
+    ↓
+Provider parses → PlannerResult
+```
+
+For providers that do NOT implement `ToolCallingProvider`, the existing prompt-based tool description flow remains unchanged.
+
+### ProviderToolSchemas
+
+`ProviderToolSchemas` provides schema definitions for known tools, enabling providers to translate the generic `Tool` interface into provider-native function/tool schemas:
+
+```typescript
+// Tool (unchanged — no schema field)
+interface Tool {
+  name: string
+  description: string
+  execute(input: unknown): Promise<unknown>
+}
+
+// Provider-side schema (new — not in Tool interface)
+interface ToolInputSchema {
+  type: 'object'
+  properties: Record<string, { type: string; description?: string }>
+  required: string[]
+}
+
+// Utility functions
+getToolInputSchema(tool: Tool): ToolInputSchema | undefined
+hasToolSchema(tool: Tool): boolean
+getSchemaTools(tools: Tool[]): ToolSchemaDescriptor[]
+```
+
+Provider translation:
+```
+Tool → ToolInputSchema → Provider-native schema
+                           ├── OpenAI: { type: 'function', name, description, parameters, strict }
+                           └── DeepSeek: { type: 'function', function: { name, description, parameters } }
+```
+
+### Event Enhancements
+
+Tool events now carry richer payloads:
+
+| Event | Enhanced Payload Fields |
+|-------|----------------------|
+| `ToolCallStarted` | `toolNames`, `tools?: [{ name, description }]`, `native: boolean` |
+| `ToolCallFinished` | `toolNames`, `success`, `native: boolean`, `toolResults?: [{ name, duration, success, error? }]`, `duration`, `totalToolCallDuration?` |
+
+### Tool Calling Provider Hierarchy
+
+```
+PlannerProvider (interface)
+  └── complete(request: AIRequest): Promise<PlannerResult>
+
+ToolCallingProvider (interface, extends PlannerProvider)
+  └── completeWithTools(request: AIRequest, tools: Tool[]): Promise<PlannerResult>
+
+PlannerProvider implementations:
+  ├── MockPlannerProvider          — NO native tool calling (prompt-based only)
+  ├── OpenAIPlannerProvider        — YES, implements ToolCallingProvider
+  │     Uses: OpenAI Responses API function calling
+  │     Schema: { type, name, description, parameters, strict }
+  │     Flow: send → function_call → execute → previous_response_id → final
+  └── DeepSeekPlannerProvider      — YES, implements ToolCallingProvider
+        Uses: Chat Completions API tool calling
+        Schema: { type, function: { name, description, parameters } }
+        Flow: send → tool_calls → execute → tool messages → final
+
+ToolCallPlanner routing:
+  provider is ToolCallingProvider? → completeWithTools(request, tools)
+  otherwise                        → enhanceWithTools(request) + complete(request)
+```
 
 Pipeline → PromptBuilder → PromptModule[]
                               ├── SystemPromptModule (no deps)

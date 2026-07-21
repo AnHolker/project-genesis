@@ -394,3 +394,56 @@
 - Updated runtime tests: added 9 new tests for interface methods (findEntity, findEntities, getWorldSnapshot)
 - All 201 tests pass (23 new tool + 9 new runtime + 169 existing)
 - TypeScript compilation clean, ESLint clean, full project build passes
+
+### WO-S3-007 — Provider-native Tool Calling
+
+- Created `ToolCallingProvider` interface extending `PlannerProvider` with `completeWithTools(request, tools)`
+- Created `ProviderToolSchemas` utility with `ToolInputSchema`, `getToolInputSchema()`, `hasToolSchema()`, `getSchemaTools()`
+  - Built-in schemas for: `find_entity`, `find_entities`, `get_world_snapshot`
+  - Unknown tools return `undefined` — providers fall back to prompt-based descriptions
+- Updated `OpenAIPlannerProvider`
+  - Implements `ToolCallingProvider` via `completeWithTools()`
+  - Translates Tool → OpenAI Responses API function schema (`{ type, name, description, parameters, strict }`)
+  - Native tool calling lifecycle: send prompt + tools → receive function_calls → execute tools → send results (via `previous_response_id`) → receive final response
+  - Parses final JSON response into PlannerResult
+  - Includes tool execution details in `PlannerResult.metadata.toolCalls`
+- Updated `DeepSeekPlannerProvider`
+  - Implements `ToolCallingProvider` via `completeWithTools()`
+  - Translates Tool → DeepSeek Chat Completions function schema (`{ type, function: { name, description, parameters } }`)
+  - Native tool calling lifecycle: send prompt + tools → receive tool_calls → execute tools → append tool messages → receive final response
+  - Parses final JSON response into PlannerResult
+  - Supports `allowBrowser` config for development OpenAI client construction
+- Updated `ToolCallPlanner`
+  - Detects if provider implements `ToolCallingProvider` (`'completeWithTools' in provider`)
+  - Routes to `completeWithTools(request, tools)` when native support exists
+  - Falls back to prompt-based tool description injection for non-native providers
+  - Enhanced `ToolCallStarted` event payload: `{ toolNames, tools?, native }`
+  - Enhanced `ToolCallFinished` event payload: `{ toolNames, success, native, toolResults?, duration?, totalToolCallDuration? }`
+  - Adds `toolCallNative: boolean` to `PlannerResult.metadata`
+- Added browser development support
+  - `AIConfiguration.allowBrowser?: boolean` — explicit flag for OpenAI SDK
+  - `createAIConfiguration()` reads `VITE_AI_ALLOW_BROWSER` env var
+  - Both providers pass `dangerouslyAllowBrowser` to OpenAI client only when `allowBrowser === true`
+  - Updated `apps/web/.env.example` with documentation
+  - Production-safe: default `false`, must be explicitly enabled
+  - No `dangerouslyAllowBrowser: true` hardcoded anywhere
+- Added 54 new test cases (covering 13 test groups):
+  - ProviderToolSchemas (9 tests): schema lookup for all 3 tools, unknown tool, hasToolSchema, getSchemaTools filtering
+  - ToolCallingProvider interface (4 tests): interface conformance, completeWithTools with tools, empty tools, error handling
+  - ToolCallPlanner Native Routing (5 tests): routing detection, tool passing, metadata enrichment, event payloads
+  - ToolCallPlanner Backward Compatibility (5 tests): prompt-based fallback, MockPlannerProvider, event payloads, empty tools, error handling
+  - OpenAIPlannerProvider Tool Calling (5 tests): interface conformance, tools-without-schemas fallback, API error, browser config
+  - DeepSeekPlannerProvider Tool Calling (4 tests): interface conformance, tools-without-schemas fallback, API error, browser config
+  - Failure Handling (4 tests): unknown tool, tool execution failure, provider error, tool name mismatch
+  - Event Ordering (2 tests): correct start → finish order for native and non-native
+  - Browser Development Configuration (4 tests): VITE_AI_ALLOW_BROWSER all states
+  - Provider Factory Compatibility (4 tests): all 3 providers, unknown provider
+  - Mock Provider Backward Compatibility (3 tests): ToolCallPlanner, streaming, complete method
+  - Retry Integration (3 tests): ToolCallingProvider + RetryPlanner, retry recovery, ToolCallPlanner independence
+  - AIConfiguration allowBrowser (2 tests): optional field, factory propagation
+- All 255 tests pass (54 new + 201 existing)
+- TypeScript compilation clean
+- `Tool` interface unchanged — no breaking changes
+- `PlannerProvider` interface unchanged — `ToolCallingProvider` added as extension
+- `Pipeline`, `Planner`, `PromptBuilder`, `Runtime` interfaces unchanged
+- `ToolCallPlanner` enhanced with routing logic (fully backward compatible)

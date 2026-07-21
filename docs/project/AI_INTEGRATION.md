@@ -4,6 +4,52 @@
 
 ---
 
+## Browser Development Support
+
+⚠️ **Security Notice:** Never expose API keys in production browser environments.
+
+The OpenAI SDK client requires `dangerouslyAllowBrowser: true` to operate in browser environments. In Project Genesis, this is controlled by the `VITE_AI_ALLOW_BROWSER` environment variable:
+
+```env
+# ⚠️ Development only — NEVER enable in production
+VITE_AI_ALLOW_BROWSER=true
+```
+
+### Why Only Development?
+
+- **Development**: You're running on localhost. API keys are in your `.env.local` file, not exposed publicly.
+- **Production**: The browser environment is inherently unsafe for API keys. A production build would expose the key to end users.
+- **Configuration**: `VITE_AI_ALLOW_BROWSER` defaults to `false` in all environments. It must be explicitly set to `true` in `.env.local`.
+
+### How It Works
+
+1. `AIConfiguration.allowBrowser` is set via `VITE_AI_ALLOW_BROWSER` → `createAIConfiguration()`
+2. Both `OpenAIPlannerProvider` and `DeepSeekPlannerProvider` check `config.allowBrowser` in their constructors
+3. When `true`, they pass `dangerouslyAllowBrowser: true` to the OpenAI SDK client constructor
+4. When `false` (default), no browser flag is set — standard Node.js/edge behavior
+
+### Security Flow
+
+```
+.env.local: VITE_AI_ALLOW_BROWSER=true
+    ↓
+createAIConfiguration() → config.allowBrowser = true
+    ↓
+ProviderFactory.create(config) → OpenAIPlannerProvider(config)
+    ↓
+Constructor: new OpenAI({ apiKey, dangerouslyAllowBrowser: true })
+    ↓
+⚠️ Only in development — production builds ignore .env.local
+```
+
+### Production Safety
+
+- No `dangerouslyAllowBrowser: true` is ever hardcoded
+- Production builds use environment variables at build time
+- Vite strips `.env.local` in production builds (build-time env only)
+- If `VITE_AI_ALLOW_BROWSER` is not set or set to `false`, the client is created without browser flags
+- The mock provider is the default and requires no API key at all
+
 ## Quick Start
 
 1. Copy the environment template:
@@ -34,6 +80,7 @@ All AI configuration is loaded from environment variables with the `VITE_` prefi
 | `VITE_AI_BASE_URL` | For deepseek | — | Custom API endpoint URL |
 | `VITE_AI_TEMPERATURE` | No | `"0.2"` | Response randomness (0.0–2.0) |
 | `VITE_AI_MAX_TOKENS` | No | `"800"` | Maximum output tokens |
+| `VITE_AI_ALLOW_BROWSER` | No | `"false"` | ⚠️ Development only — allow browser API key usage |
 
 ### Default Models by Provider
 

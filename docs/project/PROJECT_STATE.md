@@ -20,7 +20,7 @@
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider |
 | Prompt Pipeline | Complete — SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
@@ -81,6 +81,7 @@
 | WO-S3-004 | Planner Retry & Self-Healing |
 | WO-S3-005 | Tool Calling Foundation |
 | WO-S3-006 | Runtime Tool Execution |
+| WO-S3-007 | Provider-native Tool Calling |
 
 ---
 
@@ -442,6 +443,7 @@ Key remaining items:
 | ADR-0021 | Planner Retry & Self-Healing | `docs/adr/ADR-0021-planner-retry.md` |
 | ADR-0022 | Tool Calling Foundation | `docs/adr/ADR-0022-tool-calling.md` |
 | ADR-0023 | Runtime Tool Execution | `docs/adr/ADR-0023-runtime-tool-execution.md` |
+| ADR-0024 | Provider-native Tool Calling | `docs/adr/ADR-0024-provider-native-tool-calling.md` |
 
 ---
 

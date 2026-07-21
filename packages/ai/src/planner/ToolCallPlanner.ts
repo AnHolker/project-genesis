@@ -2,6 +2,7 @@ import type { PlannerResult } from './PlannerResult'
 import type { Planner } from './Planner'
 import type { AIRequest } from '../request'
 import type { PlannerProvider } from '../provider'
+import type { ToolCallingProvider } from '../provider'
 import type { ToolRegistry } from '../tools'
 import { PipelineEventEmitter } from '../events'
 
@@ -9,8 +10,10 @@ import { PipelineEventEmitter } from '../events'
  * ToolCallPlanner extends the Planner with tool calling support.
  *
  * It wraps a PlannerProvider and a ToolRegistry. When plan() is called,
- * it enhances the request with tool definitions, delegates to the provider,
- * and emits ToolCallStarted/ToolCallFinished lifecycle events.
+ * it detects whether the provider supports native tool calling via the
+ * ToolCallingProvider interface. If so, it delegates to the provider's
+ * completeWithTools() method for native function/tool calling. Otherwise,
+ * it falls back to prompt-based tool description injection.
  *
  * Architecture:
  * - Lives **above** concrete providers (works with Mock, OpenAI, DeepSeek)
@@ -19,8 +22,8 @@ import { PipelineEventEmitter } from '../events'
  * - Concrete tool execution remains outside providers
  *
  * Events emitted:
- * - `ToolCallStarted` — before provider call (payload: { toolNames })
- * - `ToolCallFinished` — after provider call (payload: { toolNames, success })
+ * - `ToolCallStarted` — before tool calling (payload: { toolNames, tools?, native? })
+ * - `ToolCallFinished` — after tool calling (payload: { toolNames, success, native?, toolResults?, duration? })
  */
 export class ToolCallPlanner implements Planner {
   readonly events = new PipelineEventEmitter()
@@ -34,21 +37,33 @@ export class ToolCallPlanner implements Planner {
     const tools = this.toolRegistry.getTools()
     const toolNames = tools.map((t) => t.name)
 
-    // Enhance the request with tool definitions
-    const enhancedRequest = this.enhanceWithTools(request, tools, toolNames)
+    // Check if the provider supports native tool calling
+    const isToolCallingProvider = this.isToolCallingProvider(this.provider)
 
-    // Emit ToolCallStarted
+    // Emit ToolCallStarted with rich payload
     this.events.emit({
       type: 'ToolCallStarted',
       timestamp: Date.now(),
-      payload: { toolNames },
+      payload: {
+        toolNames,
+        tools: tools.map((t) => ({ name: t.name, description: t.description })),
+        native: isToolCallingProvider,
+      },
     })
 
-    // Delegate to the provider
+    const startTime = Date.now()
     let success = true
     let result: PlannerResult
+
     try {
-      result = await this.provider.complete(enhancedRequest)
+      if (isToolCallingProvider) {
+        // Native tool calling — provider handles the full lifecycle
+        result = await (this.provider as ToolCallingProvider).completeWithTools(request, tools)
+      } else {
+        // Prompt-based tool injection (backward compatible)
+        const enhancedRequest = this.enhanceWithTools(request, tools, toolNames)
+        result = await this.provider.complete(enhancedRequest)
+      }
     } catch (error) {
       success = false
       result = {
@@ -57,11 +72,32 @@ export class ToolCallPlanner implements Planner {
       }
     }
 
-    // Emit ToolCallFinished
+    const duration = Date.now() - startTime
+
+    // Extract tool execution details from result metadata
+    const toolCalls = (result.metadata?.toolCalls as Array<{
+      name: string
+      duration: number
+      success: boolean
+      error?: string
+    }>) || toolNames.map((name) => ({
+      name,
+      duration: 0,
+      success,
+    }))
+
+    // Emit ToolCallFinished with rich payload
     this.events.emit({
       type: 'ToolCallFinished',
       timestamp: Date.now(),
-      payload: { toolNames, success },
+      payload: {
+        toolNames,
+        success,
+        native: isToolCallingProvider,
+        toolResults: toolCalls,
+        duration,
+        totalToolCallDuration: result.metadata?.totalToolCallDuration as number | undefined,
+      },
     })
 
     // Add tool metadata to the result
@@ -70,12 +106,21 @@ export class ToolCallPlanner implements Planner {
       metadata: {
         ...result.metadata,
         tools: toolNames,
+        toolCallDuration: duration,
+        toolCallNative: isToolCallingProvider,
       },
     }
   }
 
   /**
-   * Enhances the AIRequest with tool definitions.
+   * Check if the provider implements the ToolCallingProvider interface.
+   */
+  private isToolCallingProvider(provider: PlannerProvider): provider is ToolCallingProvider {
+    return 'completeWithTools' in provider
+  }
+
+  /**
+   * Enhances the AIRequest with tool definitions for prompt-based fallback.
    * Tool descriptions are added to the prompt text so the LLM knows
    * which tools are available. Tool names are included in metadata.
    */

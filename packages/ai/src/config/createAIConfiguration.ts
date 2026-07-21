@@ -4,12 +4,14 @@ import type { AIConfiguration } from './AIConfiguration'
  * Create an AIConfiguration from a key-value environment map.
  *
  * Supported keys:
- *   VITE_AI_PROVIDER    — "mock" | "openai" | "deepseek"  (default: "mock")
- *   VITE_AI_MODEL       — model identifier                  (default: varies by provider)
- *   VITE_AI_API_KEY     — API key                           (required for openai, deepseek)
- *   VITE_AI_BASE_URL    — custom API endpoint               (required for deepseek)
- *   VITE_AI_TEMPERATURE  — response randomness 0.0–2.0      (default: 0.2)
- *   VITE_AI_MAX_TOKENS   — max output tokens                (default: 800)
+ *   VITE_AI_PROVIDER        — "mock" | "openai" | "deepseek"  (default: "mock")
+ *   VITE_AI_MODEL           — model identifier                  (default: varies by provider)
+ *   VITE_AI_API_KEY         — API key                           (required for openai, deepseek)
+ *   VITE_AI_BASE_URL        — custom API endpoint               (required for deepseek)
+ *   VITE_AI_TEMPERATURE     — response randomness 0.0–2.0       (default: 0.2)
+ *   VITE_AI_MAX_TOKENS      — max output tokens                 (default: 800)
+ *   VITE_AI_ALLOW_BROWSER   — allow browser API key usage       (default: false)
+ *                            MUST only be enabled in development
  *
  * @param env - Environment variable map (e.g. import.meta.env)
  */
@@ -19,6 +21,7 @@ export function createAIConfiguration(env: Record<string, string | undefined> = 
   const baseURL = env.VITE_AI_BASE_URL || undefined
   const temperature = env.VITE_AI_TEMPERATURE ? Number(env.VITE_AI_TEMPERATURE) : 0.2
   const maxTokens = env.VITE_AI_MAX_TOKENS ? Number(env.VITE_AI_MAX_TOKENS) : 800
+  const allowBrowser = env.VITE_AI_ALLOW_BROWSER === 'true'
 
   let model = env.VITE_AI_MODEL || ''
   if (!model) {
@@ -42,6 +45,7 @@ export function createAIConfiguration(env: Record<string, string | undefined> = 
     model,
     temperature,
     maxTokens,
+    allowBrowser,
   }
 
   if (apiKey) config.apiKey = apiKey
