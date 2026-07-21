@@ -288,3 +288,38 @@
 - All 119 tests pass (95 AI + 9 Runtime + 15 Web)
 - TypeScript, build, lint all pass
 - Created ADR-0020
+
+### WO-S3-004 — Planner Retry & Self-Healing
+
+- Created `RetryPolicy` class in `packages/ai/src/retry/RetryPolicy.ts`
+  - Configurable maxRetries (default: 2)
+  - `isRecoverableError()` — distinguishes recoverable (500 error) from non-recoverable (auth, rate limit, network) errors
+  - `isRecoverableFailure()` — detects validation/parse failures in PlannerResult (invalid JSON, schema errors, malformed actions)
+  - `shouldRetry()` — combines attempt count and error recoverability check
+- Created `RetryPlanner` class in `packages/ai/src/planner/RetryPlanner.ts`
+  - Implements `Planner` interface, wraps any `PlannerProvider`
+  - Provider-independent — works with Mock, OpenAI, DeepSeek
+  - Retries on recoverable failures: invalid JSON, schema validation failure, malformed actions
+  - Does NOT retry: empty actions without error reasoning (genuinely empty result)
+  - Does NOT retry: provider errors like auth failures, rate limits, network errors
+  - On retry: appends validation error feedback to the prompt for LLM correction
+  - Metrics in PlannerResult.metadata: `retryCount`, `planningAttempts`, `lastValidationError`
+  - Owns `PipelineEventEmitter` for retry lifecycle events
+- Added retry event types to `PipelineEventType`: `PlannerRetryStarted`, `PlannerRetryFinished`
+  - Payload includes: `retryCount`, `validationReason`
+- Updated barrel exports: `RetryPlanner` from `planner/index.ts`, `RetryPolicy` from `src/index.ts`
+- Added 50 comprehensive test cases (covering 13 test groups):
+  - Success on first try (3 tests)
+  - Invalid JSON → retry → success (4 tests)
+  - Invalid action → retry → success (3 tests)
+  - Retry exhausted (3 tests)
+  - Provider error → no retry (4 tests)
+  - Max retry respected (2 tests)
+  - Metrics (5 tests)
+  - Event ordering (3 tests)
+  - Non-recoverable empty result (2 tests)
+  - Recoverable provider throw (2 tests)
+  - Edge cases (3 tests)
+  - RetryPolicy unit tests (16 tests)
+- All 145 tests pass (50 new + 95 existing)
+- TypeScript compilation clean, ESLint clean, full project build passes

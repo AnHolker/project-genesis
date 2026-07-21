@@ -153,6 +153,11 @@ interface Planner {
 - Does **not** contain planning logic itself
 - Delegates to the injected `PlannerProvider`
 - Can be extended with retry, validation, or caching without modifying providers
+- `RetryPlanner` wraps any `PlannerProvider` with automatic retry logic:
+  - Retries on recoverable failures (invalid JSON, schema validation failure, malformed actions)
+  - Does not retry non-recoverable errors (auth, rate limits, network failures)
+  - Emits `PlannerRetryStarted`/`PlannerRetryFinished` events during retry
+  - Tracks `retryCount`, `planningAttempts`, `lastValidationError` in `PlannerResult.metadata`
 
 ### PlannerProvider
 
@@ -230,6 +235,11 @@ StreamingPlannerProvider (interface, extends PlannerProvider)
   └── MockStreamingProvider     — char-by-char streaming for testing
         OpenAIPlannerProvider    — also implements StreamingPlannerProvider
         DeepSeekPlannerProvider  — also implements StreamingPlannerProvider
+
+RetryPlanner (implements Planner, wraps PlannerProvider)
+  └── RetryPolicy              — configurable retry policy
+        Works with: MockPlannerProvider, OpenAIPlannerProvider, DeepSeekPlannerProvider
+        Retry events: PlannerRetryStarted, PlannerRetryFinished
 ```
 
 Provider selection is centralized in `ProviderFactory`:
@@ -323,12 +333,14 @@ After planning, gameStore stores result:
 ## Event Flow
 
 ```
-Pipeline.execute() emits:
+Pipeline.execute() with RetryPlanner emits:
   1. PipelineStarted
   2. PromptBuilt          (payload: { prompt })
   3. PlannerStarted
-  4. PlannerFinished
-  5. PipelineFinished
+  4. [PlannerRetryStarted]   ← emitted per retry attempt (payload: { retryCount, validationReason })
+  5. [PlannerRetryFinished]  ← emitted per retry attempt (payload: { retryCount, validationReason })
+  6. PlannerFinished
+  7. PipelineFinished
 
 Pipeline.stream() emits:
   1. PipelineStarted
@@ -386,6 +398,11 @@ Dependency direction (must never be violated):
 Pipeline → Planner → PlannerProvider → Concrete Provider
                                          ↑
                                     AIConfiguration
+
+RetryPlanner (implements Planner)
+  ├── wraps PlannerProvider
+  ├── uses RetryPolicy
+  └── emits retry events via PipelineEventEmitter
 
 Pipeline → PromptBuilder → PromptModule[]
                               ├── SystemPromptModule (no deps)

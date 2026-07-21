@@ -78,6 +78,7 @@
 | WO-S3-001 | Streaming Provider Interface |
 | WO-S3-002 | Streaming Pipeline |
 | WO-S3-003 | Streaming UI Integration |
+| WO-S3-004 | Planner Retry & Self-Healing |
 
 ---
 
@@ -299,6 +300,9 @@ Renderer.renderWorld(ctx, world)     ← reads World, draws to Canvas
 Events (fire-and-forget during Pipeline execution):
   PipelineStarted → PromptBuilt → PlannerStarted → PlannerFinished → PipelineFinished
 
+  During retry (when using RetryPlanner):
+    PlannerRetryStarted → PlannerRetryFinished (emitted per retry attempt)
+
 Memory (optional, in PipelineContext):
   DefaultMemory stores conversation history under "conversation" key
   Used by MemoryPromptModule to provide multi-turn context
@@ -316,6 +320,9 @@ PlannerProvider (interface)
   ├── MockPlannerProvider       — keyword matching, no API required
   ├── OpenAIPlannerProvider     — OpenAI Responses API (client.responses.create)
   └── DeepSeekPlannerProvider   — OpenAI-compatible Chat Completions (client.chat.completions.create)
+
+RetryPlanner (decorator, implements Planner)
+  └── wraps any PlannerProvider with automatic retry
 ```
 
 Provider selection is handled by `ProviderFactory.create(config)` based on `config.provider`:
@@ -426,6 +433,7 @@ Key remaining items:
 | ADR-0018 | System Prompt Module | `docs/adr/ADR-0018-system-prompt-module.md` |
 | ADR-0019 | Responses API Migration | `docs/adr/ADR-0019-responses-api-migration.md` |
 | ADR-0020 | Streaming UI Integration | `docs/adr/ADR-0020-streaming-ui-integration.md` |
+| ADR-0021 | Planner Retry & Self-Healing | `docs/adr/ADR-0021-planner-retry.md` |
 
 ---
 

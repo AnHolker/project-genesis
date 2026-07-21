@@ -3,6 +3,8 @@ export type PipelineEventType =
   | 'PromptBuilt'
   | 'PlannerStarted'
   | 'StreamChunk'
+  | 'PlannerRetryStarted'
+  | 'PlannerRetryFinished'
   | 'PlannerFinished'
   | 'PipelineFinished'
 

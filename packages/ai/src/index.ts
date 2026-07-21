@@ -1,6 +1,6 @@
 export type { Planner } from './planner'
 export type { PlannerResult } from './planner'
-export { MockPlanner } from './planner'
+export { MockPlanner, RetryPlanner } from './planner'
 export type { Pipeline } from './pipeline'
 export type { PipelineContext } from './pipeline'
 export { DefaultPipeline } from './pipeline'
@@ -20,3 +20,5 @@ export { MockPlannerProvider, MockStreamingProvider, OpenAIPlannerProvider, Deep
 export type { AIConfiguration } from './config'
 export { DefaultAIConfiguration, createAIConfiguration } from './config'
 export { StructuredOutputValidator } from './validation'
+export { RetryPolicy } from './retry'
+export type { RetryPolicyConfig } from './retry'

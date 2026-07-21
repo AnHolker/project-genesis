@@ -196,9 +196,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | Low |
-| **Reason** | No retry logic for transient failures (rate limits, network timeouts). Currently, any error returns `{ actions: [] }`. A retry policy with exponential backoff would improve reliability for production use. |
-| **Suggested Sprint** | Sprint 4 |
+| **Priority** | ~~Low~~ **Resolved** |
+| **Reason** | ~~No retry logic for transient failures (rate limits, network timeouts). Currently, any error returns `{ actions: [] }`. A retry policy with exponential backoff would improve reliability for production use.~~ |
+| **Suggested Sprint** | ~~Sprint 4~~ **Completed in WO-S3-004** |
+| **Resolution** | RetryPolicy and RetryPlanner created. RetryPlanner wraps any PlannerProvider with automatic retry. RetryPolicy distinguishes recoverable (invalid JSON, schema errors) from non-recoverable (auth, rate limits, network) failures. Retry events (PlannerRetryStarted/Finished) emitted. Retry metrics tracked in PlannerResult.metadata. 50 tests covering all retry paths. |
 
 ---
 
