@@ -479,3 +479,31 @@
 - TypeScript 0 errors, ESLint 0 errors
 - No Pipeline, Planner, Provider, or Runtime modifications
 - No breaking changes to any Public API
+
+### WO-S3-009 — Pipeline Agent Loop Integration
+
+- Modified `DefaultPipeline` constructor to accept optional `agentLoop?: AgentLoop` (4th parameter)
+  - If not provided, internally creates a `DefaultAgentLoop`
+  - All existing constructor signatures remain valid (`(planner, promptBuilder)` and `(planner, promptBuilder, provider)`)
+- Updated `DefaultPipeline.execute()` to call `AgentLoop.execute()` instead of `Planner.plan()` directly
+  - Builds `AgentLoopContext` with `{ request, planner, maxIterations: 5 }`
+  - Extracts `plannerResult` from `AgentLoopResult`
+  - Pipeline behavior remains 100% identical (AgentLoop currently executes exactly 1 iteration)
+- Updated `DefaultPipeline.stream()` fallback path (non-streaming provider) to use `AgentLoop.execute()` instead of `Planner.plan()`
+- Streaming provider path (`doStream()`) remains completely unchanged — AgentLoop does not participate in streaming
+- AgentLoop events (`AgentLoopStarted`, `LoopIterationStarted`, `LoopIterationFinished`, `AgentLoopFinished`) fire on AgentLoop's own `PipelineEventEmitter`, independent from Pipeline events
+- Created ADR-0026: Pipeline Agent Loop Integration
+- Added 47 new integration test cases (covering 9 test groups):
+  - AgentLoop Integration (8 tests): AgentLoop called instead of direct Planner, context built correctly, maxIterations/planner passthrough, result preservation
+  - Backward Compatibility (5 tests): old constructors, same results with/without AgentLoop, all 4 parameters
+  - Pipeline Events (5 tests): correct order, AgentLoop events between PlannerStarted/PlannerFinished, all 4 AgentLoop events
+  - MockPlanner Compatibility (4 tests): tree/move/unknown/memory
+  - RetryPlanner Compatibility (3 tests): valid provider, metadata, RetryPolicy
+  - ToolCallPlanner Compatibility (3 tests): with/without tools, metadata
+  - Streaming Compatibility (4 tests): StreamChunk events, correct order, fallback, same result as execute
+  - Edge Cases & Custom AgentLoop (6 tests): multiple calls, empty input, error handling, custom AgentLoop
+  - Event Chain & Multiple Pipelines (10 tests): full event verification, independent emitters, parallel pipelines
+- All 351 tests pass (47 new + 304 existing)
+- TypeScript 0 errors, ESLint 0 errors
+- No Planner, Provider, Runtime, or Renderer modifications
+- No breaking changes to any Public API

@@ -4,17 +4,23 @@ import type { PromptBuilder } from '../prompt'
 import type { Pipeline } from './Pipeline'
 import type { PipelineContext } from './PipelineContext'
 import type { PlannerProvider, StreamingPlannerProvider } from '../provider'
+import type { AgentLoop, AgentLoopContext } from '../agent'
+import { DefaultAgentLoop } from '../agent'
 import { PipelineEventEmitter } from '../events'
 import { StructuredOutputValidator } from '../validation'
 
 export class DefaultPipeline implements Pipeline {
   readonly events = new PipelineEventEmitter()
+  private readonly agentLoop: AgentLoop
 
   constructor(
     private readonly planner: Planner,
     private readonly promptBuilder: PromptBuilder,
     private readonly provider?: PlannerProvider,
-  ) {}
+    agentLoop?: AgentLoop,
+  ) {
+    this.agentLoop = agentLoop ?? new DefaultAgentLoop()
+  }
 
   async execute(context: PipelineContext): Promise<PipelineContext> {
     this.events.emit({ type: 'PipelineStarted', timestamp: Date.now() })
@@ -23,7 +29,13 @@ export class DefaultPipeline implements Pipeline {
     this.events.emit({ type: 'PromptBuilt', timestamp: Date.now(), payload: { prompt: request.prompt } })
 
     this.events.emit({ type: 'PlannerStarted', timestamp: Date.now() })
-    const plannerResult = await this.planner.plan(request)
+    const agentLoopContext: AgentLoopContext = {
+      request,
+      planner: this.planner,
+      maxIterations: 5,
+    }
+    const agentLoopResult = await this.agentLoop.execute(agentLoopContext)
+    const plannerResult = agentLoopResult.plannerResult
     this.events.emit({ type: 'PlannerFinished', timestamp: Date.now() })
 
     const result = { ...context, plannerResult }
@@ -57,8 +69,14 @@ export class DefaultPipeline implements Pipeline {
       return this.doStream(request, this.provider as StreamingPlannerProvider)
     }
 
-    // Fallback: non-streaming provider — use planner.plan() directly
-    return this.planner.plan(request)
+    // Fallback: non-streaming provider — use agentLoop.execute()
+    const agentLoopContext: AgentLoopContext = {
+      request,
+      planner: this.planner,
+      maxIterations: 5,
+    }
+    const agentLoopResult = await this.agentLoop.execute(agentLoopContext)
+    return agentLoopResult.plannerResult
   }
 
   private async doStream(

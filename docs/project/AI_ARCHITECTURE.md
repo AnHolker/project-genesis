@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.8)
+> Project Genesis — AI Architecture Reference (v0.13)
 > Primary reference for all AI development.
 
 ---
@@ -19,6 +19,8 @@ PromptBuilder.build(context)         ← composes prompt from PromptModule[4]
     └── WorldStatePromptModule        ← context.worldState
     ↓
 AIRequest { prompt }
+    ↓
+AgentLoop.execute(request, planner)  ← wraps Planner.plan() with iteration control
     ↓
 Planner.plan(request)
     ↓
@@ -52,10 +54,11 @@ Pipeline.stream(context: PipelineContext): Promise<PipelineContext>
 
 - Receives `PipelineContext` with user input
 - Delegates prompt construction to `PromptBuilder`
-- Delegates planning to `Planner`
+- Delegates planning to **`AgentLoop`** (which internally calls `Planner.plan()`)
+- `DefaultPipeline` creates a `DefaultAgentLoop` internally if none is provided
 - Emits lifecycle events through `PipelineEventEmitter`
 - `stream()` emits `StreamChunk` events while the provider generates the response
-- If the provider supports `StreamingPlannerProvider`, `stream()` uses streaming; otherwise falls back to `Planner.plan()`
+- If the provider supports `StreamingPlannerProvider`, `stream()` uses streaming; otherwise falls back to `AgentLoop.execute()`
 - Both methods return enriched `PipelineContext` with `plannerResult`
 - `stream()` is visualization only — Runtime executes only after stream completes and validation passes
 
@@ -404,7 +407,7 @@ Return AgentLoopResult
 
 ### Key Design Decisions
 
-1. **Standalone capability** — AgentLoop is not inserted into Pipeline. It is a new independent abstraction that consumers can opt into.
+1. **Pipeline integration** — Since WO-S3-009, `DefaultPipeline.execute()` and `DefaultPipeline.stream()` use `AgentLoop.execute()` internally. Pipeline remains the only AI entry point; AgentLoop is the planning layer beneath it.
 2. **Single iteration** — DefaultAgentLoop executes exactly 1 iteration (`iterations === 1`). No `while()`, no multi-turn tool calling, no reflection.
 3. **Event-driven** — Four new events (`AgentLoopStarted`, `LoopIterationStarted`, `LoopIterationFinished`, `AgentLoopFinished`) provide observability without coupling.
 4. **Future-ready** — `LoopStep` supports `thought`, `toolName`, `toolInput`, `toolOutput`, `plannerResult` for future multi-iteration recording.
