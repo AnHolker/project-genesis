@@ -1,5 +1,7 @@
 export type { PlannerProvider } from './PlannerProvider'
+export type { StreamingPlannerProvider } from './StreamingPlannerProvider'
 export { MockPlannerProvider } from './MockPlannerProvider'
+export { MockStreamingProvider } from './MockStreamingProvider'
 export { OpenAIPlannerProvider } from './OpenAIPlannerProvider'
 export { DeepSeekPlannerProvider } from './DeepSeekPlannerProvider'
 export { ProviderFactory } from './ProviderFactory'

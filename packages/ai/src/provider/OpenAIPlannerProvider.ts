@@ -1,11 +1,12 @@
 import OpenAI from 'openai'
 import type { PlannerProvider } from './PlannerProvider'
+import type { StreamingPlannerProvider } from './StreamingPlannerProvider'
 import type { AIRequest } from '../request'
 import type { PlannerResult } from '../planner'
 import type { AIConfiguration } from '../config'
 import { StructuredOutputValidator } from '../validation'
 
-export class OpenAIPlannerProvider implements PlannerProvider {
+export class OpenAIPlannerProvider implements PlannerProvider, StreamingPlannerProvider {
   private client: OpenAI
   private config: AIConfiguration
 
@@ -37,6 +38,22 @@ export class OpenAIPlannerProvider implements PlannerProvider {
       return {
         actions: [],
         reasoning: `OpenAI API error: ${error instanceof Error ? error.message : String(error)}`,
+      }
+    }
+  }
+
+  async *stream(request: AIRequest): AsyncIterable<string> {
+    const stream = await this.client.responses.create({
+      model: this.config.model,
+      input: request.prompt,
+      temperature: this.config.temperature,
+      max_output_tokens: this.config.maxTokens,
+      stream: true,
+    })
+
+    for await (const event of stream) {
+      if (event.type === 'response.output_text.delta') {
+        yield event.delta
       }
     }
   }
