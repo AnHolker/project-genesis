@@ -684,3 +684,43 @@
 - All 568 tests pass (536 existing + 32 new)
 - TypeScript 0 errors, ESLint 0 errors
 - Updated PROJECT_STATE.md (v0.18), AI_ARCHITECTURE.md (v0.18)
+
+### WO-S3-015 — Structured Prompt Context
+
+- Created `PromptContext` interface in `packages/ai/src/prompt/PromptContext.ts`
+  - Structured data type: `{ system?, userInput?, memory?, worldState?, observations?, reflections? }`
+  - All fields optional — only populated sections are present
+  - `serializePromptContext(ctx)` — canonical serialization to string with defined field order
+  - Independent of AgentLoop, Planner, or Runtime
+- Extended `PromptModule` interface with optional `buildContext()` method
+  - Returns `Partial<PromptContext>` with only this module's fields
+  - `build()` unchanged — fully backward compatible
+  - Legacy modules (build() only) continue working via fallback
+- Added `buildContext()` to all 6 built-in modules:
+  - `SystemPromptModule.buildContext()` → `{ system }`
+  - `UserInputModule.buildContext()` → `{ userInput }`
+  - `MemoryPromptModule.buildContext()` → `{ memory }` or `{ memory: undefined }`
+  - `WorldStatePromptModule.buildContext()` → `{ worldState }` or `{ worldState: undefined }`
+  - `ObservationPromptModule.buildContext()` → `{ observations }` or `{ observations: undefined }`
+  - `ReflectionPromptModule.buildContext()` → `{ reflections }` or `{ reflections: undefined }`
+- Updated `DefaultPromptBuilder`:
+  - `build()` now composes via PromptContext: calls `buildContext()` per module, merges into PromptContext, serializes via module-key mapping
+  - New `buildContext(context)` method for structured access (returns PromptContext without serialization)
+  - String output is identical to previous version (same sections, same order, same joining)
+- Updated barrel exports: `PromptContext` type and `serializePromptContext` from prompt/index.ts and src/index.ts
+- Created ADR-0032: Structured Prompt Context
+- Added 28 new test cases in `PromptContextFoundation.test.ts` (covering 12 test groups):
+  - PromptContext Interface (3 tests): empty, partial, full
+  - serializePromptContext (4 tests): empty, single, multiple fields, undefined handling
+  - PromptModule.buildContext (6 tests): all 6 modules return correct context keys
+  - Legacy Module (2 tests): build() only, mixed with context-aware modules
+  - DefaultPromptBuilder.buildContext (2 tests): structured access, merged from all modules
+  - DefaultPromptBuilder.build() Backward Compatibility (4 tests): same output as before, module order preservation, empty modules
+  - Full Composition (2 tests): all 6 modules, serialized in build()
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop and Reflection
+- All 596 tests pass (568 existing + 28 new)
+- TypeScript 0 errors, ESLint 0 errors
+- Updated PROJECT_STATE.md (v0.19), AI_ARCHITECTURE.md (v0.19)

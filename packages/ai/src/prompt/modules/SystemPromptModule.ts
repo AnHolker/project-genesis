@@ -1,5 +1,6 @@
 import type { PromptModule } from './PromptModule'
 import type { PipelineContext } from '../../pipeline'
+import type { PromptContext } from '../PromptContext'
 
 const SYSTEM_PROMPT = `You are a game action planner for Project Genesis. Translate natural language descriptions into structured game actions.
 
@@ -24,5 +25,9 @@ If the input cannot be translated to actions, return {"actions": []}.`
 export class SystemPromptModule implements PromptModule {
   async build(_context: PipelineContext): Promise<string> {
     return SYSTEM_PROMPT
+  }
+
+  async buildContext(_context: PipelineContext): Promise<Partial<PromptContext>> {
+    return { system: SYSTEM_PROMPT }
   }
 }

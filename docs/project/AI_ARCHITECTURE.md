@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.18)
+> Project Genesis — AI Architecture Reference (v0.19)
 > Primary reference for all AI development.
 
 ---
@@ -86,7 +86,7 @@ interface PipelineContext {
 
 ### PromptBuilder
 
-Composes the `AIRequest.prompt` string from modular fragments.
+Composes the `AIRequest.prompt` string from modular fragments via structured `PromptContext`.
 
 ```typescript
 interface PromptBuilder {
@@ -94,8 +94,10 @@ interface PromptBuilder {
 }
 ```
 
-- Iterates over `PromptModule[]` and concatenates their outputs
-- Each module contributes a section to the final prompt
+- Iterates over `PromptModule[]` and collects structured `PromptContext` via each module's `buildContext()` method
+- Merges partial contexts into a unified `PromptContext`
+- Serializes to string by mapping module context keys in module order
+- Also exposes `buildContext(context): Promise<PromptContext>` for structured access
 - The builder is the **only** component that constructs `AIRequest`
 
 ### PromptModule
@@ -105,8 +107,14 @@ Pluggable prompt fragment generator. Each module contributes a section to the fi
 ```typescript
 interface PromptModule {
   build(context: PipelineContext): Promise<string>
+  buildContext?(context: PipelineContext): Promise<Partial<PromptContext>>
 }
 ```
+
+- `build()` — unchanged, returns formatted string fragment (backward compatible)
+- `buildContext()` — new, returns structured `Partial<PromptContext>` with only this module's fields
+- All 6 built-in modules implement both methods
+- Legacy modules (build() only) continue working unchanged — `DefaultPromptBuilder` falls back to `build()`
 
 Current modules (in composition order):
 
@@ -117,24 +125,28 @@ Current modules (in composition order):
 5. **WorldStatePromptModule** — wraps `context.worldState` in a "Current World:" header section
 6. **ReflectionPromptModule** — reads `context.metadata?.reflectionResults` and formats them as a "## Previous Reflection" section. This is the canonical formatting — all reflection prompt text originates from PromptBuilder.
 
-### Prompt Composition Order
+### Prompt Composition Order (via PromptContext)
 
 ```
-ObservationPromptModule
-       ↓
-SystemPromptModule
-       ↓
-UserInputModule
-       ↓
-MemoryPromptModule
-       ↓
-WorldStatePromptModule
-       ↓
-ReflectionPromptModule
-       ↓
-DefaultPromptBuilder.build() joins with '\n'
-       ↓
-AIRequest { prompt, metadata?.observations, metadata?.reflectionResults }
+PromptModule[6]
+  ├── SystemPromptModule.buildContext()    → { system: "..." }
+  ├── UserInputModule.buildContext()       → { userInput: "..." }
+  ├── MemoryPromptModule.buildContext()    → { memory: "..." }
+  ├── WorldStatePromptModule.buildContext() → { worldState: "..." }
+  ├── ObservationPromptModule.buildContext() → { observations: "..." }
+  └── ReflectionPromptModule.buildContext() → { reflections: "..." }
+                      ↓
+            Merge into PromptContext
+                      ↓
+            Serialize to string (module-order mapping)
+                      ↓
+            AIRequest { prompt, metadata?.observations, metadata?.reflectionResults }
+
+PromptContext (structured intermediate representation):
+  { system?, userInput?, memory?, worldState?, observations?, reflections? }
+
+DefaultPromptBuilder.buildContext(context) → PromptContext (structured access)
+serializePromptContext(ctx: PromptContext) → string (canonical serialization)
 
 ### AIRequest
 
@@ -478,14 +490,16 @@ PipelineContext { input: "增加一棵树", memory: DefaultMemory, worldState: "
     ↓
 DefaultPromptBuilder.build(context)
     ↓
-Iterates PromptModule[6] (in order)
-    ├── SystemPromptModule.build()     → "You are a game action planner..."
-    ├── UserInputModule.build(context) → "增加一棵树"
-    ├── MemoryPromptModule.build()     → "Previous actions:\n- Applied 1 action(s)"
-    ├── WorldStatePromptModule.build()  → "Current World:\n\nTree\nid: tree-1\nposition: (3,5)"
-    └── ReflectionPromptModule.build()  → "## Previous Reflection\n\nIteration 1\n\nReasoning:\nActions found\n\nContinue:\nfalse"
+Iterates PromptModule[6] via buildContext() (in order)
+    ├── SystemPromptModule.buildContext()     → { system: "You are a game action planner..." }
+    ├── UserInputModule.buildContext(context) → { userInput: "增加一棵树" }
+    ├── MemoryPromptModule.buildContext()     → { memory: "Previous actions:\n- Applied 1 action(s)" }
+    ├── WorldStatePromptModule.buildContext()  → { worldState: "Current World:\n\nTree\nid: tree-1\nposition: (3,5)" }
+    └── ReflectionPromptModule.buildContext()  → { reflections: "## Previous Reflection\n\nIteration 1\n\nReasoning:\nActions found\n\nContinue:\nfalse" }
     ↓
-Concatenate fragments with '\n' separator
+Merge into PromptContext
+    ↓
+Serialize to string via module-order key mapping
     ↓
 AIRequest { prompt: "You are a game action planner...\n增加一棵树\nPrevious actions:\n...\nCurrent World:\n..." }
 ```
@@ -734,7 +748,7 @@ See [PROVIDER_GUIDE.md](./PROVIDER_GUIDE.md) for step-by-step instructions.
 ### Adding a new PromptModule
 
 1. Create `packages/ai/src/prompt/modules/<Name>PromptModule.ts`
-2. Implement `PromptModule` interface
+2. Implement `PromptModule` interface (both `build()` and optional `buildContext()`)
 3. Add to `modules/index.ts`
 4. Wire into `DefaultPromptBuilder` at the composition root (e.g., `gameStore.ts`)
 
@@ -749,6 +763,9 @@ new DefaultPromptBuilder([
   new ReflectionPromptModule(),
 ])
 ```
+
+If the module implements `buildContext()`, it automatically contributes structured data to `PromptContext`.
+Legacy modules (build() only) are fully supported — the builder falls back to `build()` for string fragments.
 
 Order matters — modules appear in the prompt in array order.
 

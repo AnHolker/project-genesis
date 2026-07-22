@@ -16,12 +16,12 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.18 |
+| Architecture Version | v0.19 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — ObservationPromptModule → SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder.compose() → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -89,6 +89,7 @@
 | WO-S3-012 | Planner Observation Awareness |
 | WO-S3-013 | Reflection Foundation |
 | WO-S3-014 | Reflection Prompt Integration |
+| WO-S3-015 | Structured Prompt Context |
 
 ---
 
@@ -218,8 +219,16 @@ interface PromptModule {
 //   UserInputModule          — returns context.input
 //   MemoryPromptModule       — reads "conversation" from Memory
 //   WorldStatePromptModule   — reads context.worldState
-//   ObservationPromptModule  — NEW: reads context.metadata.observations, formats as "## Previous Observations"
-//   ReflectionPromptModule   — NEW: reads context.metadata.reflectionResults, formats as "## Previous Reflection"
+//   ObservationPromptModule  — reads context.metadata.observations, formats as "## Previous Observations"
+//   ReflectionPromptModule   — reads context.metadata.reflectionResults, formats as "## Previous Reflection"
+//
+// All built-in modules also implement buildContext():
+//   SystemPromptModule.buildContext()  → { system: "..." }
+//   UserInputModule.buildContext()     → { userInput: "..." }
+//   MemoryPromptModule.buildContext()  → { memory: "..." }
+//   WorldStatePromptModule.buildContext() → { worldState: "..." }
+//   ObservationPromptModule.buildContext() → { observations: "..." }
+//   ReflectionPromptModule.buildContext()  → { reflections: "..." }
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
@@ -227,6 +236,11 @@ interface PromptModule {
 //
 // Reflection formatting is owned by PromptBuilder:
 //   formatReflectionResults(results: ReflectionResult[]): string  — formats as "## Previous Reflection"
+//
+// PromptContext provides structured access:
+//   PromptContext { system?, userInput?, memory?, worldState?, observations?, reflections? }
+//   DefaultPromptBuilder.buildContext(context) → PromptContext
+//   serializePromptContext(ctx: PromptContext) → string
 ```
 
 ### Pipeline Events
@@ -474,9 +488,21 @@ PromptBuilder modules (in order):
   4. ReflectionPromptModule  — previous reflection results from context.metadata
   5. WorldStatePromptModule  — current world entities snapshot
   6. ObservationPromptModule — structured tool observations
+
+PromptBuilder composition flow:
+  PromptModule[6]
+    ├── Each module.buildContext() → Partial<PromptContext>
+    ├── Merge into unified PromptContext
+    └── Serialize to string via module-order mapping → AIRequest
+
+  PromptContext fields:
+    system?, userInput?, memory?, worldState?, observations?, reflections?
+
+  DefaultPromptBuilder.buildContext(context) → PromptContext (structured, no serialization)
+  serializePromptContext(ctx: PromptContext) → string (standalone serialization)
 ```
 
-Modules execute in parallel via Promise.all. Output is joined with '\n' separator.
+Modules execute in-order. Each module produces both a string fragment (via build()) and a structured context contribution (via buildContext()). The builder serializes using module-specific context keys matching the module order.
 
 ### Architecture Rules
 
@@ -579,6 +605,7 @@ Key remaining items:
 | ADR-0029 | Planner Observation Awareness | `docs/adr/ADR-0029-planner-observation-awareness.md` |
 | ADR-0030 | Reflection Foundation | `docs/adr/ADR-0030-reflection-foundation.md` |
 | ADR-0031 | Reflection Prompt Integration | `docs/adr/ADR-0031-reflection-prompt-integration.md` |
+| ADR-0032 | Structured Prompt Context | `docs/adr/ADR-0032-structured-prompt-context.md` |
 
 ---
 

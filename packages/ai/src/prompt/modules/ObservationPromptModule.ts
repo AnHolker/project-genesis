@@ -1,5 +1,6 @@
 import type { PromptModule } from './PromptModule'
 import type { PipelineContext } from '../../pipeline'
+import type { PromptContext } from '../PromptContext'
 import type { Observation } from '../../agent'
 
 /**
@@ -20,6 +21,11 @@ export class ObservationPromptModule implements PromptModule {
     }
 
     return formatObservations(rawObservations as unknown as Observation[])
+  }
+
+  async buildContext(context: PipelineContext): Promise<Partial<PromptContext>> {
+    const text = await this.build(context)
+    return { observations: text || undefined }
   }
 }
 

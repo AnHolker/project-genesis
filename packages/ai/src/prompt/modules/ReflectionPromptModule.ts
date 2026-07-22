@@ -1,5 +1,6 @@
 import type { PromptModule } from './PromptModule'
 import type { PipelineContext } from '../../pipeline'
+import type { PromptContext } from '../PromptContext'
 import type { ReflectionResult } from '../../reflection'
 
 /**
@@ -19,6 +20,11 @@ export class ReflectionPromptModule implements PromptModule {
     }
 
     return formatReflectionResults(rawResults as unknown as ReflectionResult[])
+  }
+
+  async buildContext(context: PipelineContext): Promise<Partial<PromptContext>> {
+    const text = await this.build(context)
+    return { reflections: text || undefined }
   }
 }
 

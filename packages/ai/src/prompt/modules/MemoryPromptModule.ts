@@ -1,5 +1,6 @@
 import type { PromptModule } from './PromptModule'
 import type { PipelineContext } from '../../pipeline'
+import type { PromptContext } from '../PromptContext'
 
 export class MemoryPromptModule implements PromptModule {
   async build(context: PipelineContext): Promise<string> {
@@ -15,5 +16,10 @@ export class MemoryPromptModule implements PromptModule {
     }
 
     return lines.length > 1 ? lines.join('\n') : ''
+  }
+
+  async buildContext(context: PipelineContext): Promise<Partial<PromptContext>> {
+    const text = await this.build(context)
+    return { memory: text || undefined }
   }
 }
