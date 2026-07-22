@@ -1,4 +1,4 @@
-import type { PipelineContext } from '../pipeline'
+import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 
 /**
  * PromptContext is a structured data type representing all prompt sections.
@@ -8,7 +8,7 @@ import type { PipelineContext } from '../pipeline'
  *
  * This is the intermediate representation between PromptModule and the final
  * prompt string. DefaultPromptBuilder collects PromptContext from modules'
- * buildContext() results, then serializes to the final prompt string.
+ * buildContext() results, then delegates rendering to PromptRenderer.
  *
  * Design principles:
  * - Simple: only known, needed fields
@@ -45,28 +45,12 @@ export interface PromptContext {
 /**
  * Serialize a PromptContext to a prompt string.
  *
- * Sections are rendered in the defined canonical order.
- * Empty or undefined sections are rendered as empty strings (preserving
- * the spacing behavior from module array joining).
+ * This is a backward-compatible wrapper around DefaultPromptRenderer.
+ * The canonical serialization logic now lives in DefaultPromptRenderer.render().
  *
  * @param ctx — The PromptContext to serialize
  * @returns The serialized prompt string with sections joined by '\n'
  */
 export function serializePromptContext(ctx: PromptContext): string {
-  const order: Array<keyof PromptContext> = [
-    'system',
-    'userInput',
-    'memory',
-    'reflections',
-    'worldState',
-    'observations',
-  ]
-
-  // Check if any field is present — return empty if none
-  const hasContent = order.some((key) => ctx[key] !== undefined && ctx[key] !== '')
-  if (!hasContent) return ''
-
-  return order
-    .map((key) => ctx[key] ?? '')
-    .join('\n')
+  return new DefaultPromptRenderer().renderWithOrder(ctx)
 }

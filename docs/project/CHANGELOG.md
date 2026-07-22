@@ -724,3 +724,47 @@
 - All 596 tests pass (568 existing + 28 new)
 - TypeScript 0 errors, ESLint 0 errors
 - Updated PROJECT_STATE.md (v0.19), AI_ARCHITECTURE.md (v0.19)
+
+### WO-S3-016 — Prompt Renderer Foundation
+
+- Created `PromptRenderer` interface in `packages/ai/src/prompt/PromptRenderer.ts`
+  - Single method: `render(context: PromptContext): string`
+  - Abstraction for future renderer implementations (Markdown, XML, JSON, provider-specific)
+- Created `DefaultPromptRenderer` class in `packages/ai/src/prompt/DefaultPromptRenderer.ts`
+  - Implements `PromptRenderer` with two rendering strategies:
+    - `render()` — insertion order (preserves module array order for the builder)
+    - `renderWithOrder()` — canonical field order (system, userInput, memory, reflections, worldState, observations)
+  - `CANONICAL_ORDER` static property for reference
+  - Filters out unknown keys (not in CANONICAL_ORDER)
+- Updated `serializePromptContext()` to delegate to `DefaultPromptRenderer.renderWithOrder()`
+  - Fully backward compatible — identical behavior preserved
+  - `serializePromptContext` remains a stable public API
+- Updated `DefaultPromptBuilder` to use `PromptRenderer`
+  - Constructor accepts optional second parameter `renderer?: PromptRenderer` (defaults to `DefaultPromptRenderer`)
+  - `build()` now: collects `PromptContext` from modules → calls `renderer.render()` → returns `AIRequest`
+  - Legacy modules (no `buildContext()`) still supported via `build()` fallback
+  - `buildContext()` method unchanged
+  - Output is identical to previous version for all module configurations
+- Updated barrel exports:
+  - `prompt/index.ts`: exports `PromptRenderer` type and `DefaultPromptRenderer` class
+  - `src/index.ts`: exports `PromptRenderer` type and `DefaultPromptRenderer` class
+- Created ADR-0033: Prompt Renderer Foundation
+- Added 39 new test cases in `PromptRendererFoundation.test.ts` (covering 12 test groups):
+  - PromptRenderer Interface (2 tests): conformance, custom implementation
+  - DefaultPromptRenderer (7 tests): empty, single field, insertion order, newline joining, undefined fields, unknown key filtering, renderWithOrder canonical order, CANONICAL_ORDER completeness
+  - serializePromptContext Compatibility (5 tests): identical behavior, canonical order, delegates to DefaultPromptRenderer
+  - DefaultPromptBuilder Renderer Integration (5 tests): default renderer, custom renderer, module order preservation, custom module order, identical output
+  - PromptBuilder → Renderer Full Composition (1 test): all 6 modules
+  - Existing Prompt Modules Compatibility (6 tests): all 6 modules via build()
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop and Reflection
+  - Backward Compatibility — Legacy Modules (2 tests): build() only, mixed
+  - Custom Renderer (2 tests): XML-style, JSON-style
+  - Exports (2 tests): type and class exports
+- All 635 tests pass (596 existing + 39 new)
+- TypeScript 0 errors, ESLint 0 errors
+- No Planner, Provider, Pipeline, AgentLoop, Runtime, or Renderer modifications
+- No breaking changes to any Public API
+- Architecture version v0.20

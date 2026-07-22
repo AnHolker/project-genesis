@@ -3,38 +3,44 @@ import type { PromptModule } from './modules'
 import type { PipelineContext } from '../pipeline'
 import type { AIRequest } from '../request'
 import type { PromptContext } from './PromptContext'
+import type { PromptRenderer } from './PromptRenderer'
 import type { Observation } from '../agent'
 import type { ReflectionResult } from '../reflection'
+import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 import { formatObservations as doFormat } from './modules/ObservationPromptModule'
 import { formatReflectionResults as doFormatReflection } from './modules/ReflectionPromptModule'
 
 export class DefaultPromptBuilder implements PromptBuilder {
-  constructor(private readonly modules: PromptModule[]) {}
+  constructor(
+    private readonly modules: PromptModule[],
+    private readonly renderer: PromptRenderer = new DefaultPromptRenderer(),
+  ) {}
 
   async build(context: PipelineContext): Promise<AIRequest> {
     const promptContext: PromptContext = {}
-    const sections: string[] = []
+    const legacySections: string[] = []
 
     for (const module of this.modules) {
       // Collect structured context if available
       if ('buildContext' in module && typeof module.buildContext === 'function') {
         const ctx = await module.buildContext(context)
         Object.assign(promptContext, ctx)
-
-        // Serialize the section from the context key
-        const key = Object.keys(ctx)[0] as keyof PromptContext
-        if (key) {
-          sections.push(promptContext[key] ?? '')
-        }
       } else {
         // Legacy module fallback: use build() for the raw string
-        sections.push(await module.build(context))
+        legacySections.push(await module.build(context))
       }
     }
 
-    return {
-      prompt: sections.join('\n'),
+    // Use PromptRenderer for the structured content
+    const rendered = this.renderer.render(promptContext)
+
+    // Append legacy module output if any
+    if (legacySections.length > 0) {
+      const allParts = [rendered, ...legacySections].filter(Boolean)
+      return { prompt: allParts.join('\n') }
     }
+
+    return { prompt: rendered }
   }
 
   /**

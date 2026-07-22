@@ -5,3 +5,5 @@ export { UserInputModule, MemoryPromptModule, SystemPromptModule, WorldStateProm
 export { formatObservations, formatObservationsInline, formatReflectionResults } from './modules'
 export type { PromptContext } from './PromptContext'
 export { serializePromptContext } from './PromptContext'
+export type { PromptRenderer } from './PromptRenderer'
+export { DefaultPromptRenderer } from './DefaultPromptRenderer'

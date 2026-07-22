@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.19)
+> Project Genesis — AI Architecture Reference (v0.20)
 > Primary reference for all AI development.
 
 ---
@@ -86,7 +86,7 @@ interface PipelineContext {
 
 ### PromptBuilder
 
-Composes the `AIRequest.prompt` string from modular fragments via structured `PromptContext`.
+Composes the `AIRequest.prompt` string from modular fragments via structured `PromptContext` and `PromptRenderer`.
 
 ```typescript
 interface PromptBuilder {
@@ -96,9 +96,28 @@ interface PromptBuilder {
 
 - Iterates over `PromptModule[]` and collects structured `PromptContext` via each module's `buildContext()` method
 - Merges partial contexts into a unified `PromptContext`
-- Serializes to string by mapping module context keys in module order
+- Delegates string rendering to `PromptRenderer.render()` (default: `DefaultPromptRenderer`)
 - Also exposes `buildContext(context): Promise<PromptContext>` for structured access
 - The builder is the **only** component that constructs `AIRequest`
+- Cannot render strings — that is the Renderer's sole responsibility
+
+### PromptRenderer
+
+The sole component responsible for converting a structured `PromptContext` into a final prompt string.
+
+```typescript
+interface PromptRenderer {
+  render(context: PromptContext): string
+}
+```
+
+- `render()` — converts PromptContext to string (default: insertion order = module array order)
+- `DefaultPromptRenderer` — default implementation
+  - `render()` — insertion order (preserves module array ordering)
+  - `renderWithOrder()` — canonical field order (for `serializePromptContext` compatibility)
+- Future implementations: XMLPromptRenderer, JSONPromptRenderer, OpenAIPromptRenderer, ClaudePromptRenderer
+- All prompt text output must go through a PromptRenderer
+- No compression, memory ranking, or token optimization — deferred to future WOs
 
 ### PromptModule
 
@@ -138,15 +157,19 @@ PromptModule[6]
                       ↓
             Merge into PromptContext
                       ↓
-            Serialize to string (module-order mapping)
+            PromptRenderer.render(PromptContext)
                       ↓
-            AIRequest { prompt, metadata?.observations, metadata?.reflectionResults }
+            AIRequest { prompt }
 
 PromptContext (structured intermediate representation):
   { system?, userInput?, memory?, worldState?, observations?, reflections? }
 
 DefaultPromptBuilder.buildContext(context) → PromptContext (structured access)
-serializePromptContext(ctx: PromptContext) → string (canonical serialization)
+serializePromptContext(ctx: PromptContext) → string (delegates to DefaultPromptRenderer)
+
+DefaultPromptRenderer (implements PromptRenderer):
+  render(ctx)     → insertion order (module array order for builder)
+  renderWithOrder(ctx) → canonical order (for serializePromptContext)
 
 ### AIRequest
 

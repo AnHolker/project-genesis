@@ -12,6 +12,8 @@ export { UserInputModule, MemoryPromptModule, SystemPromptModule, WorldStateProm
 export { formatObservations, formatObservationsInline, formatReflectionResults } from './prompt'
 export type { PromptContext } from './prompt'
 export { serializePromptContext } from './prompt'
+export type { PromptRenderer } from './prompt'
+export { DefaultPromptRenderer } from './prompt'
 export type { PipelineEvent, PipelineEventType } from './events'
 export type { PipelineEventListener } from './events'
 export { PipelineEventEmitter } from './events'

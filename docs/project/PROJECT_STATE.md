@@ -16,12 +16,12 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.19 |
+| Architecture Version | v0.20 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder.compose() → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -90,6 +90,7 @@
 | WO-S3-013 | Reflection Foundation |
 | WO-S3-014 | Reflection Prompt Integration |
 | WO-S3-015 | Structured Prompt Context |
+| WO-S3-016 | Prompt Renderer Foundation |
 
 ---
 
@@ -212,6 +213,11 @@ interface PromptBuilder {
 
 interface PromptModule {
   build(context: PipelineContext): Promise<string>
+  buildContext?(context: PipelineContext): Promise<Partial<PromptContext>>
+}
+
+interface PromptRenderer {
+  render(context: PromptContext): string
 }
 
 // Available modules:
@@ -230,6 +236,11 @@ interface PromptModule {
 //   ObservationPromptModule.buildContext() → { observations: "..." }
 //   ReflectionPromptModule.buildContext()  → { reflections: "..." }
 //
+// PromptBuilder collects PromptContext → PromptRenderer renders to string
+//
+// DefaultPromptBuilder now accepts an optional PromptRenderer
+//   (defaults to DefaultPromptRenderer — renders in insertion order)
+//
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
 //   formatObservationsInline(obs: Observation[]): string   — compact format for AgentLoop iterations
@@ -240,7 +251,12 @@ interface PromptModule {
 // PromptContext provides structured access:
 //   PromptContext { system?, userInput?, memory?, worldState?, observations?, reflections? }
 //   DefaultPromptBuilder.buildContext(context) → PromptContext
-//   serializePromptContext(ctx: PromptContext) → string
+//   serializePromptContext(ctx: PromptContext) → string  (delegates to DefaultPromptRenderer)
+//
+// PromptRenderer is the ONLY text renderer:
+//   PromptRenderer.render(context: PromptContext): string
+//   DefaultPromptRenderer — default implementation (insertion order for builder, canonical order via renderWithOrder)
+//   Future: MarkdownPromptRenderer, XMLPromptRenderer, JSONPromptRenderer, etc.
 ```
 
 ### Pipeline Events
