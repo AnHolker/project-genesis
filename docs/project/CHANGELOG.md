@@ -650,3 +650,37 @@
 - TypeScript 0 errors, ESLint 0 errors
 - Created ADR-0030: Reflection Foundation
 - Updated PROJECT_STATE.md (v0.17), AI_ARCHITECTURE.md (v0.17)
+
+### WO-S3-014 — Reflection Prompt Integration
+
+- Created `ReflectionPromptModule` in `packages/ai/src/prompt/modules/ReflectionPromptModule.ts`
+  - Implements `PromptModule` interface
+  - Reads `PipelineContext.metadata?.reflectionResults` and formats into "## Previous Reflection" section
+  - Returns empty string when no reflection results exist
+  - Implements the canonical `formatReflectionResults()` function (rich format with iteration/reasoning/continue)
+- Updated `DefaultPromptBuilder` with `formatReflectionResults(results)` instance method
+  - Delegates to the same implementation as ReflectionPromptModule
+  - Provides a canonical API for any component needing reflection formatting
+- Updated `DefaultPipeline` to propagate reflection results:
+  - `execute()`: writes `agentLoopResult.reflectionResults` to `PipelineContext.metadata.reflectionResults`
+  - `stream()`: captures reflectionResults from fallback AgentLoop path and propagates to result metadata
+  - `streamPlannerResult()`: returns `{ plannerResult, reflectionResults? }` tuple for reflection propagation
+- Updated barrel exports:
+  - `modules/index.ts`: exports `ReflectionPromptModule`, `formatReflectionResults`
+  - `prompt/index.ts`: re-exports new module and functions
+  - `src/index.ts`: re-exports new module and functions
+- Pipeline interface, Planner interface, PlannerProvider, AgentLoop interface, AgentLoopResult unchanged
+- Created ADR-0031: Reflection Prompt Integration
+- Added 32 new test cases in `ReflectionPromptIntegration.test.ts` (covering 11 test groups):
+  - formatReflectionResults (6 tests): empty, single, multi, true/false, with metadata
+  - ReflectionPromptModule (6 tests): empty context, empty array, undefined metadata, non-array, single/multi results
+  - DefaultPromptBuilder Reflection Integration (4 tests): reflection inclusion, exclusion, full composition, module order
+  - DefaultPromptBuilder.formatReflectionResults (2 tests): delegation, empty array
+  - AgentLoop ReflectionResults Propagation (4 tests): execute propagation, no reflection case, stream fallback, subsequent calls
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (1 test): streaming provider path (no reflection)
+  - Backward Compatibility (7 tests): unchanged existing output, no reflection data, module behavior, Pipeline/stream signatures, AgentLoop without reflection
+- All 568 tests pass (536 existing + 32 new)
+- TypeScript 0 errors, ESLint 0 errors
+- Updated PROJECT_STATE.md (v0.18), AI_ARCHITECTURE.md (v0.18)

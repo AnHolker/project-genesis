@@ -16,7 +16,7 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.17 |
+| Architecture Version | v0.18 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
@@ -88,6 +88,7 @@
 | WO-S3-011 | Structured Observation Context |
 | WO-S3-012 | Planner Observation Awareness |
 | WO-S3-013 | Reflection Foundation |
+| WO-S3-014 | Reflection Prompt Integration |
 
 ---
 
@@ -218,10 +219,14 @@ interface PromptModule {
 //   MemoryPromptModule       — reads "conversation" from Memory
 //   WorldStatePromptModule   — reads context.worldState
 //   ObservationPromptModule  — NEW: reads context.metadata.observations, formats as "## Previous Observations"
+//   ReflectionPromptModule   — NEW: reads context.metadata.reflectionResults, formats as "## Previous Reflection"
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
 //   formatObservationsInline(obs: Observation[]): string   — compact format for AgentLoop iterations
+//
+// Reflection formatting is owned by PromptBuilder:
+//   formatReflectionResults(results: ReflectionResult[]): string  — formats as "## Previous Reflection"
 ```
 
 ### Pipeline Events
@@ -466,7 +471,9 @@ PromptBuilder modules (in order):
   1. SystemPromptModule     — system instructions, action schema, JSON format
   2. UserInputModule         — user natural language input
   3. MemoryPromptModule      — conversation history from Memory
-  4. WorldStatePromptModule  — current world entities snapshot
+  4. ReflectionPromptModule  — previous reflection results from context.metadata
+  5. WorldStatePromptModule  — current world entities snapshot
+  6. ObservationPromptModule — structured tool observations
 ```
 
 Modules execute in parallel via Promise.all. Output is joined with '\n' separator.
@@ -569,6 +576,9 @@ Key remaining items:
 | ADR-0026 | Pipeline Agent Loop Integration | `docs/adr/ADR-0026-pipeline-agent-loop-integration.md` |
 | ADR-0027 | Multi-Step Agent Loop | `docs/adr/ADR-0027-multi-step-agent-loop.md` |
 | ADR-0028 | Structured Observation Context | `docs/adr/ADR-0028-structured-observation-context.md` |
+| ADR-0029 | Planner Observation Awareness | `docs/adr/ADR-0029-planner-observation-awareness.md` |
+| ADR-0030 | Reflection Foundation | `docs/adr/ADR-0030-reflection-foundation.md` |
+| ADR-0031 | Reflection Prompt Integration | `docs/adr/ADR-0031-reflection-prompt-integration.md` |
 
 ---
 

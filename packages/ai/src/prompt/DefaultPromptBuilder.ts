@@ -3,7 +3,9 @@ import type { PromptModule } from './modules'
 import type { PipelineContext } from '../pipeline'
 import type { AIRequest } from '../request'
 import type { Observation } from '../agent'
+import type { ReflectionResult } from '../reflection'
 import { formatObservations as doFormat } from './modules/ObservationPromptModule'
+import { formatReflectionResults as doFormatReflection } from './modules/ReflectionPromptModule'
 
 export class DefaultPromptBuilder implements PromptBuilder {
   constructor(private readonly modules: PromptModule[]) {}
@@ -28,5 +30,16 @@ export class DefaultPromptBuilder implements PromptBuilder {
    */
   formatObservations(observations: Observation[]): string {
     return doFormat(observations)
+  }
+
+  /**
+   * Convert structured ReflectionResult[] to formatted prompt text.
+   *
+   * This is the canonical formatting method for how reflection results
+   * appear in the prompt. Delegates to the same formatter used by
+   * ReflectionPromptModule.
+   */
+  formatReflectionResults(results: ReflectionResult[]): string {
+    return doFormatReflection(results)
   }
 }

@@ -5,6 +5,7 @@ import type { Pipeline } from './Pipeline'
 import type { PipelineContext } from './PipelineContext'
 import type { PlannerProvider, StreamingPlannerProvider } from '../provider'
 import type { AgentLoop, AgentLoopContext } from '../agent'
+import type { ReflectionResult } from '../reflection'
 import { DefaultAgentLoop } from '../agent'
 import { PipelineEventEmitter } from '../events'
 import { StructuredOutputValidator } from '../validation'
@@ -38,7 +39,9 @@ export class DefaultPipeline implements Pipeline {
     const plannerResult = agentLoopResult.plannerResult
     this.events.emit({ type: 'PlannerFinished', timestamp: Date.now() })
 
-    const result = { ...context, plannerResult }
+    const result: PipelineContext = agentLoopResult.reflectionResults
+      ? { ...context, plannerResult, metadata: { ...context.metadata, reflectionResults: agentLoopResult.reflectionResults } }
+      : { ...context, plannerResult }
     this.events.emit({ type: 'PipelineFinished', timestamp: Date.now() })
     return result
   }
@@ -51,11 +54,13 @@ export class DefaultPipeline implements Pipeline {
 
     this.events.emit({ type: 'PlannerStarted', timestamp: Date.now() })
 
-    const plannerResult = await this.streamPlannerResult(request)
+    const { plannerResult, reflectionResults } = await this.streamPlannerResult(request)
 
     this.events.emit({ type: 'PlannerFinished', timestamp: Date.now() })
 
-    const result = { ...context, plannerResult }
+    const result: PipelineContext = reflectionResults
+      ? { ...context, plannerResult, metadata: { ...context.metadata, reflectionResults } }
+      : { ...context, plannerResult }
     this.events.emit({ type: 'PipelineFinished', timestamp: Date.now() })
     return result
   }
@@ -63,10 +68,10 @@ export class DefaultPipeline implements Pipeline {
   private async streamPlannerResult(request: {
     prompt: string
     metadata?: Record<string, unknown>
-  }): Promise<PlannerResult> {
+  }): Promise<{ plannerResult: PlannerResult; reflectionResults?: ReflectionResult[] }> {
     // Check if the provider supports streaming
     if (this.provider && 'stream' in this.provider) {
-      return this.doStream(request, this.provider as StreamingPlannerProvider)
+      return { plannerResult: await this.doStream(request, this.provider as StreamingPlannerProvider) }
     }
 
     // Fallback: non-streaming provider — use agentLoop.execute()
@@ -76,7 +81,10 @@ export class DefaultPipeline implements Pipeline {
       maxIterations: 5,
     }
     const agentLoopResult = await this.agentLoop.execute(agentLoopContext)
-    return agentLoopResult.plannerResult
+    return {
+      plannerResult: agentLoopResult.plannerResult,
+      reflectionResults: agentLoopResult.reflectionResults,
+    }
   }
 
   private async doStream(

@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.17)
+> Project Genesis — AI Architecture Reference (v0.18)
 > Primary reference for all AI development.
 
 ---
@@ -12,12 +12,13 @@ User Natural Language
     ↓
 Pipeline.execute(PipelineContext)
     ↓
-PromptBuilder.build(context)         ← composes prompt from PromptModule[5]
-    ├── ObservationPromptModule         ← NEW: reads context.metadata.observations
+PromptBuilder.build(context)         ← composes prompt from PromptModule[6]
+    ├── ObservationPromptModule         ← reads context.metadata.observations
     ├── SystemPromptModule              ← system instructions, action schema
     ├── UserInputModule                 ← context.input
     ├── MemoryPromptModule              ← conversation history from Memory
-    └── WorldStatePromptModule          ← context.worldState
+    ├── WorldStatePromptModule          ← context.worldState
+    └── ReflectionPromptModule          ← NEW: reads context.metadata.reflectionResults
     ↓
 AIRequest { prompt }
     ↓
@@ -114,6 +115,7 @@ Current modules (in composition order):
 3. **UserInputModule** — returns `context.input` verbatim
 4. **MemoryPromptModule** — reads conversation history from Memory and formats it as context
 5. **WorldStatePromptModule** — wraps `context.worldState` in a "Current World:" header section
+6. **ReflectionPromptModule** — reads `context.metadata?.reflectionResults` and formats them as a "## Previous Reflection" section. This is the canonical formatting — all reflection prompt text originates from PromptBuilder.
 
 ### Prompt Composition Order
 
@@ -128,9 +130,11 @@ MemoryPromptModule
        ↓
 WorldStatePromptModule
        ↓
+ReflectionPromptModule
+       ↓
 DefaultPromptBuilder.build() joins with '\n'
        ↓
-AIRequest { prompt, metadata?.observations }
+AIRequest { prompt, metadata?.observations, metadata?.reflectionResults }
 
 ### AIRequest
 
@@ -470,15 +474,16 @@ Return AgentLoopResult
 ## Prompt Generation Flow
 
 ```
-PipelineContext { input: "增加一棵树", memory: DefaultMemory, worldState: "Tree\nid: tree-1\nposition: (3,5)" }
+PipelineContext { input: "增加一棵树", memory: DefaultMemory, worldState: "Tree\nid: tree-1\nposition: (3,5)", metadata: { reflectionResults: [...] } }
     ↓
 DefaultPromptBuilder.build(context)
     ↓
-Iterates PromptModule[4] (in order)
+Iterates PromptModule[6] (in order)
     ├── SystemPromptModule.build()     → "You are a game action planner..."
     ├── UserInputModule.build(context) → "增加一棵树"
     ├── MemoryPromptModule.build()     → "Previous actions:\n- Applied 1 action(s)"
-    └── WorldStatePromptModule.build()  → "Current World:\n\nTree\nid: tree-1\nposition: (3,5)"
+    ├── WorldStatePromptModule.build()  → "Current World:\n\nTree\nid: tree-1\nposition: (3,5)"
+    └── ReflectionPromptModule.build()  → "## Previous Reflection\n\nIteration 1\n\nReasoning:\nActions found\n\nContinue:\nfalse"
     ↓
 Concatenate fragments with '\n' separator
     ↓
@@ -702,7 +707,9 @@ Pipeline → PromptBuilder → PromptModule[]
                               ├── SystemPromptModule (no deps)
                               ├── UserInputModule (no deps)
                               ├── MemoryPromptModule → Memory
-                              └── WorldStatePromptModule (no deps — reads string)
+                              ├── WorldStatePromptModule (no deps — reads string)
+                              ├── ObservationPromptModule (no deps — reads metadata)
+                              └── ReflectionPromptModule (no deps — reads metadata)
 
 StructuredOutputValidator (used by OpenAIPlannerProvider, DeepSeekPlannerProvider)
 
@@ -738,6 +745,8 @@ new DefaultPromptBuilder([
   new UserInputModule(),
   new MemoryPromptModule(),
   new WorldStatePromptModule(),
+  new ObservationPromptModule(),
+  new ReflectionPromptModule(),
 ])
 ```
 
