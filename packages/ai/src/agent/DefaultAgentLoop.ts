@@ -2,33 +2,25 @@ import type { AgentLoop } from './AgentLoop'
 import type { AgentLoopContext } from './AgentLoopContext'
 import type { AgentLoopResult } from './AgentLoopResult'
 import type { LoopStep } from './AgentLoopStep'
+import type { Observation } from './Observation'
 import type { PlannerResult } from '../planner'
 import { PipelineEventEmitter } from '../events'
 
 /**
  * DefaultAgentLoop implements the AgentLoop interface.
  *
- * This implementation supports multi-step execution:
- * - Each iteration calls planner.plan(request) → PlannerResult
- * - If the Planner returns actions (actions.length > 0), the loop ends
- * - If actions are empty AND toolCalls exist in metadata, tools are executed
- * - Tool observations are fed back into the request for the next iteration
- * - The loop stops when one of: Planner returns actions, maxIterations reached
+ * Supports multi-step execution with structured Observation context.
+ * Each iteration:
+ * 1. Attaches structured observations to request metadata
+ * 2. Calls planner.plan(request) → PlannerResult
+ * 3. If actions returned → done
+ * 4. If empty actions + toolCalls → execute tools, create structured Observations
+ * 5. LoopStep references Observation objects (no duplication)
+ * 6. Observations are also converted to prompt text (AgentLoop decides format)
  *
- * Current flow:
- * 1. Emit AgentLoopStarted
- * 2. Loop (iteration 1..N):
- *    a. Emit LoopIterationStarted (iteration)
- *    b. planner.plan(request) → plannerResult
- *    c. Create LoopStep with iteration and plannerResult
- *    d. If plannerResult.actions.length > 0 → final result, break
- *    e. If toolRegistry and toolCalls exist → execute tools, record observations
- *       - For each tool: execute, emit ToolExecuted, record in LoopStep, emit ObservationRecorded
- *       - Append observations to request prompt
- *    f. Emit LoopIterationFinished
- * 3. Build AgentLoopResult
- * 4. Emit AgentLoopFinished
- * 5. Return AgentLoopResult
+ * Stop conditions:
+ * - Planner returns non-empty actions
+ * - maxIterations reached
  *
  * Events:
  * - AgentLoopStarted — before any planning (payload: { maxIterations })
@@ -48,6 +40,9 @@ export class DefaultAgentLoop implements AgentLoop {
     let finalPlannerResult: PlannerResult = { actions: [] }
     let loopFinished = false
 
+    // Structured observations maintained across all iterations
+    const structuredObservations: Observation[] = []
+
     // Emit AgentLoopStarted
     this.events.emit({
       type: 'AgentLoopStarted',
@@ -63,8 +58,14 @@ export class DefaultAgentLoop implements AgentLoop {
         payload: { iteration, maxIterations },
       })
 
+      // Attach structured observations to request metadata before planning
+      const requestWithObservations = this.attachObservations(
+        currentRequest,
+        structuredObservations,
+      )
+
       // Execute planning via the injected Planner
-      const plannerResult = await context.planner.plan(currentRequest)
+      const plannerResult = await context.planner.plan(requestWithObservations)
 
       // Check if the Planner returned final actions
       if (plannerResult.actions.length > 0) {
@@ -91,30 +92,43 @@ export class DefaultAgentLoop implements AgentLoop {
       const toolCalls = this.extractToolCalls(plannerResult)
 
       if (toolCalls.length > 0 && context.toolRegistry) {
-        const observations: string[] = []
+        const iterationObservations: Observation[] = []
+        const promptObservations: string[] = []
         let lastToolName: string | undefined
         let lastToolInput: unknown
         let lastToolOutput: unknown
 
         for (const toolCall of toolCalls) {
           const tool = context.toolRegistry.findTool(toolCall.name)
+          const now = Date.now()
 
           if (!tool) {
             const error = `Tool not found: ${toolCall.name}`
             lastToolName = toolCall.name
             lastToolInput = toolCall.input
             lastToolOutput = error
-            observations.push(`Error: ${error}`)
+            promptObservations.push(`Error: ${error}`)
+
+            // Create structured Observation
+            const obs: Observation = {
+              toolName: toolCall.name,
+              toolInput: toolCall.input,
+              toolOutput: error,
+              timestamp: now,
+              iteration,
+              success: false,
+            }
+            iterationObservations.push(obs)
 
             this.events.emit({
               type: 'ToolExecuted',
-              timestamp: Date.now(),
+              timestamp: now,
               payload: { toolName: toolCall.name, toolInput: toolCall.input, success: false },
             })
 
             this.events.emit({
               type: 'ObservationRecorded',
-              timestamp: Date.now(),
+              timestamp: now,
               payload: { toolName: toolCall.name, toolInput: toolCall.input, toolOutput: error },
             })
 
@@ -124,7 +138,7 @@ export class DefaultAgentLoop implements AgentLoop {
           // Emit ToolExecuted
           this.events.emit({
             type: 'ToolExecuted',
-            timestamp: Date.now(),
+            timestamp: now,
             payload: { toolName: toolCall.name, toolInput: toolCall.input },
           })
 
@@ -138,9 +152,20 @@ export class DefaultAgentLoop implements AgentLoop {
             success = false
           }
 
-          // Record observation
-          const observation = `Tool ${toolCall.name} returned: ${JSON.stringify(output)}`
-          observations.push(observation)
+          // Create structured Observation
+          const obs: Observation = {
+            toolName: toolCall.name,
+            toolInput: toolCall.input,
+            toolOutput: output,
+            timestamp: now,
+            iteration,
+            success,
+          }
+          iterationObservations.push(obs)
+
+          // Build prompt text from observation (AgentLoop decides format)
+          const observationText = `Tool ${toolCall.name} returned: ${JSON.stringify(output)}`
+          promptObservations.push(observationText)
 
           lastToolName = toolCall.name
           lastToolInput = toolCall.input
@@ -149,10 +174,14 @@ export class DefaultAgentLoop implements AgentLoop {
           // Emit ObservationRecorded
           this.events.emit({
             type: 'ObservationRecorded',
-            timestamp: Date.now(),
+            timestamp: now,
             payload: { toolName: toolCall.name, toolInput: toolCall.input, toolOutput: output, success },
           })
         }
+
+        // Add iteration observations to the global array
+        // LoopStep references these same objects (no data duplication)
+        structuredObservations.push(...iterationObservations)
 
         // Build the LoopStep for this iteration
         const step: LoopStep = {
@@ -161,14 +190,16 @@ export class DefaultAgentLoop implements AgentLoop {
           toolName: lastToolName,
           toolInput: lastToolInput,
           toolOutput: lastToolOutput,
+          observations: iterationObservations,
         }
         steps.push(step)
 
         // Update request with observations for next iteration
-        const observationText = observations.join('\n')
+        // AgentLoop decides how observations are converted to prompt
+        const promptText = promptObservations.join('\n')
         currentRequest = {
           ...currentRequest,
-          prompt: `${currentRequest.prompt}\n\nObservation:\n${observationText}`,
+          prompt: `${currentRequest.prompt}\n\nObservation:\n${promptText}`,
         }
       } else {
         // No tool calls or no tool registry — record the step and end
@@ -213,6 +244,29 @@ export class DefaultAgentLoop implements AgentLoop {
     })
 
     return result
+  }
+
+  /**
+   * Attach structured observations to the request metadata.
+   * The observerations are passed to the Planner via AIRequest.metadata
+   * so the Planner can access structured context without needing the
+   * AgentLoop to convert observations to prompt first.
+   */
+  private attachObservations(
+    request: { prompt: string; metadata?: Record<string, unknown> },
+    observations: Observation[],
+  ): { prompt: string; metadata?: Record<string, unknown> } {
+    if (observations.length === 0) {
+      return request
+    }
+
+    return {
+      ...request,
+      metadata: {
+        ...request.metadata,
+        observations,
+      },
+    }
   }
 
   /**

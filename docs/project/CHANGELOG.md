@@ -540,3 +540,35 @@
 - Updated PROJECT_STATE.md (v0.14), AI_ARCHITECTURE.md (v0.14)
 - All 420 tests pass (351 existing + 69 new)
 - TypeScript 0 errors, ESLint 0 errors
+
+### WO-S3-011 — Structured Observation Context
+
+- Created `Observation` type in `packages/ai/src/agent/Observation.ts`
+  - Fields: `toolName`, `toolInput`, `toolOutput`, `timestamp`, `iteration`, `success?`
+  - Formal structured data type for tool execution results
+- Updated `LoopStep` interface with `observations?: Observation[]` field
+  - References same Observation objects as AgentLoop (no data duplication)
+  - Existing inline `toolName`/`toolInput`/`toolOutput` fields retained for backward compatibility
+- Refactored `DefaultAgentLoop` to maintain structured `Observation[]` across all iterations
+  - Observations created after each tool execution
+  - Accumulated across iterations in a single canonical array
+  - Passed to Planner via `AIRequest.metadata.observations` before each `planner.plan()` call
+  - AgentLoop still converts observations to prompt text (backward compatible)
+  - Observation lifecycle stays in AgentLoop — not in PromptBuilder or PromptModule
+- Updated barrel exports: `Observation` type from `agent/index.ts` and `src/index.ts`
+- No changes to Planner, PlannerProvider, ToolCallPlanner, RetryPlanner, Pipeline, Runtime, Renderer
+- Created ADR-0028: Structured Observation Context
+- Added 53 new test cases in `ObservationContext.test.ts` (covering 10 test groups):
+  - Observation Type (4 tests): required fields, optional success, type-only export
+  - Observation Lifecycle Creation (8 tests): toolName, toolInput, toolOutput, iteration, timestamp, success, error, tool not found
+  - LoopStep Observation Reference (6 tests): observations array, final step, inline field matching, multi-tool, empty, ordering
+  - Planner Receives Observations via Metadata (6 tests): metadata presence, empty first call, accumulated, cross-iteration, original metadata preserved
+  - Multi-Iteration Observation Accumulation (6 tests): 2/3 iterations, iteration numbers, multiple per iteration, order
+  - Observation Events (5 tests): ToolExecuted/ObservationRecorded fire, order, payload, count, cross-iteration
+  - Observation Structure (4 tests): exact toolName, toolInput, toolOutput, iteration numbers
+  - Backward Compatibility (7 tests): inline toolName/toolInput/toolOutput, iterations, events, empty actions, no toolRegistry
+  - Edge Cases (4 tests): no tools, empty registry, execution failure, multiple tools
+  - Loop Result Contains Observations (4 tests): steps have observations, preserved across all steps, inline field mirroring, accessible from result
+- Updated PROJECT_STATE.md (v0.15), AI_ARCHITECTURE.md (v0.15)
+- All 473 tests pass (420 existing + 53 new)
+- TypeScript 0 errors, ESLint 0 errors

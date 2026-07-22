@@ -259,9 +259,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | Medium |
-| **Reason** | Planning is single-shot — one input produces one PlannerResult. No iterative refinement, no intermediate feedback, no plan correction loop. Agent Loop foundation (WO-S3-008) establishes the abstraction layer. Multi-iteration execution requires future WO. |
-| **Suggested Sprint** | Sprint 4 |
+| **Priority** | ~~Medium~~ **Resolved** |
+| **Reason** | ~~Planning is single-shot — one input produces one PlannerResult. No iterative refinement, no intermediate feedback, no plan correction loop. Agent Loop foundation (WO-S3-008) establishes the abstraction layer. Multi-iteration execution requires future WO.~~ |
+| **Suggested Sprint** | ~~Sprint 4~~ **Completed in WO-S3-010, WO-S3-011** |
+| **Resolution** | DefaultAgentLoop now supports multi-step execution with tool calling (WO-S3-010). Structured Observation Context (WO-S3-011) provides formal Observation[] lifecycle. AgentLoop iterates: plan → check actions → execute tools → observe → repeat, until Planner returns actions or maxIterations reached. |
 
 ---
 
@@ -269,10 +270,10 @@
 
 | Field | Value |
 |-------|-------|
-| **Priority** | ~~Medium~~ **Resolved (Foundation)** |
+| **Priority** | ~~Medium~~ **Resolved** |
 | **Reason** | ~~No loop exists for multi-step AI reasoning. AI cannot decompose "build a house" into sequence of actions, observe results, and adjust. Requires PlannerProvider interface changes.~~ |
-| **Suggested Sprint** | ~~Sprint 4~~ **Foundation completed in WO-S3-008** |
-| **Resolution** | AgentLoop interface, DefaultAgentLoop (single-iteration), LoopStep, AgentLoopContext, AgentLoopResult, and 4 new event types created. ADR-0025 documents the design. Multi-iteration execution and Pipeline integration deferred to future work orders. |
+| **Suggested Sprint** | ~~Sprint 4~~ **Completed in WO-S3-008 through WO-S3-011** |
+| **Resolution** | AgentLoop interface, DefaultAgentLoop (single-iteration), LoopStep, AgentLoopContext, AgentLoopResult, and 6 event types created in WO-S3-008. Multi-step execution with tool calling added in WO-S3-010. Structured Observation Context added in WO-S3-011. Pipeline integration completed in WO-S3-009. |
 
 ---
 

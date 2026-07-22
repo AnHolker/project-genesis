@@ -16,11 +16,11 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.14 |
+| Architecture Version | v0.15 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step) |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations) |
 | Prompt Pipeline | Complete — SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
@@ -85,6 +85,7 @@
 | WO-S3-008 | Agent Loop Foundation |
 | WO-S3-009 | Pipeline Agent Loop Integration |
 | WO-S3-010 | Multi-Step Agent Loop |
+| WO-S3-011 | Structured Observation Context |
 
 ---
 
@@ -295,8 +296,10 @@ interface LoopStep {
 }
 
 class DefaultAgentLoop implements AgentLoop {
-  // Multi-step execution with tool calling support
-  // Each iteration: plan → check actions → execute tools → observe → repeat
+  // Multi-step execution with structured Observation context
+  // Each iteration: attach observations → plan → check actions → execute tools → observe → repeat
+  // Observations passed to planner via request.metadata.observations
+  // LoopStep references Observation objects (no data duplication)
   // Stop conditions: Planner returns actions, or maxIterations reached
   // Events: AgentLoopStarted → LoopIterationStarted → [ToolExecuted] → [ObservationRecorded] → LoopIterationFinished → ... → AgentLoopFinished
 }
@@ -503,6 +506,7 @@ Key remaining items:
 | ADR-0025 | Agent Loop Foundation | `docs/adr/ADR-0025-agent-loop-foundation.md` |
 | ADR-0026 | Pipeline Agent Loop Integration | `docs/adr/ADR-0026-pipeline-agent-loop-integration.md` |
 | ADR-0027 | Multi-Step Agent Loop | `docs/adr/ADR-0027-multi-step-agent-loop.md` |
+| ADR-0028 | Structured Observation Context | `docs/adr/ADR-0028-structured-observation-context.md` |
 
 ---
 

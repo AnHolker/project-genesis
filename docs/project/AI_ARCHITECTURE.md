@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.14)
+> Project Genesis — AI Architecture Reference (v0.15)
 > Primary reference for all AI development.
 
 ---
@@ -377,9 +377,9 @@ Pipeline → ToolCallPlanner → PlannerProvider → Concrete Provider
 
 ---
 
-## Agent Loop (Multi-Step)
+## Agent Loop (Multi-Step with Structured Observations)
 
-The Agent Loop provides an abstraction for iterative AI reasoning. Since WO-S3-010, `DefaultAgentLoop` supports true multi-step execution with tool calling.
+The Agent Loop provides an abstraction for iterative AI reasoning. Since WO-S3-010, `DefaultAgentLoop` supports true multi-step execution with tool calling. Since WO-S3-011, observations are maintained as structured `Observation[]` objects.
 
 ### Architecture
 
@@ -388,22 +388,27 @@ AgentLoop.execute(context)
     ↓
 AgentLoopContext { request, planner, toolRegistry?, maxIterations }
     ↓
+structuredObservations: Observation[] = []
+    ↓
 Emit: AgentLoopStarted
     ↓
 for iteration = 1 to maxIterations:
+  ├── Attach observations to request.metadata
   ├── Emit: LoopIterationStarted
-  ├── planner.plan(request) → PlannerResult
+  ├── planner.plan(request with metadata.observations) → PlannerResult
   ├── actions.length > 0? → Yes: break (finished = true)
   ├── No → toolCalls in metadata AND toolRegistry?
   │         ├── Yes: for each toolCall:
   │         │       ├── Emit: ToolExecuted
   │         │       ├── tool.execute(input) → output
+  │         │       ├── Create Observation { toolName, toolInput, toolOutput, timestamp, iteration }
+  │         │       ├── Push to structuredObservations
   │         │       └── Emit: ObservationRecorded
-  │         │       Append observations to request
+  │         │       Append observations to request (prompt + metadata)
   │         └── No: break (finished = false)
   └── Emit: LoopIterationFinished
     ↓
-AgentLoopResult { plannerResult, steps: [LoopStep...], iterations, finished }
+AgentLoopResult { plannerResult, steps: [LoopStep with observations], iterations, finished }
     ↓
 Emit: AgentLoopFinished
     ↓
@@ -415,8 +420,9 @@ Return AgentLoopResult
 1. **Pipeline integration** — Since WO-S3-009, `DefaultPipeline.execute()` and `DefaultPipeline.stream()` use `AgentLoop.execute()` internally. Pipeline remains the only AI entry point; AgentLoop is the planning layer beneath it.
 2. **Multi-step execution** — Since WO-S3-010, `DefaultAgentLoop` supports true multi-step execution. It calls `planner.plan()` in a loop, checking for final actions, executing tools, and feeding back observations.
 3. **Stop conditions** — Two stop conditions: Planner returns non-empty actions, or maxIterations reached.
-4. **Tool call detection** — Tool calls are read from `PlannerResult.metadata.toolCalls`. Each tool is executed via `ToolRegistry` and observations are recorded in `LoopStep`.
-5. **Events** — Six events (`AgentLoopStarted`, `LoopIterationStarted`, `ToolExecuted`, `ObservationRecorded`, `LoopIterationFinished`, `AgentLoopFinished`) provide full observability.
+4. **Tool call detection** — Tool calls are read from `PlannerResult.metadata.toolCalls`. Each tool is executed via `ToolRegistry` and observations are recorded as structured `Observation[]` in `LoopStep`.
+5. **Structured Observation Context** — Since WO-S3-011, AgentLoop maintains an `Observation[]` array passed to the Planner via `request.metadata.observations`. LoopStep references Observation objects (no data duplication).
+6. **Events** — Six events (`AgentLoopStarted`, `LoopIterationStarted`, `ToolExecuted`, `ObservationRecorded`, `LoopIterationFinished`, `AgentLoopFinished`) provide full observability.
 6. **No Runtime dependency** — AgentLoopContext accepts `request`, `planner`, and optional `toolRegistry`. It has no reference to Runtime.
 
 ### Compatibility
