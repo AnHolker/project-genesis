@@ -851,3 +851,48 @@
 - No modifications to any existing component
 - No breaking changes to any Public API
 - Architecture version v0.22
+
+### WO-S3-019 — Memory Ranking Foundation
+
+- Created `MemoryRanking` interface in `packages/ai/src/prompt/MemoryRanking.ts`
+  - Single method: `rank(context: PromptContext): MemoryRankingResult`
+  - Pluggable ranking abstraction — pure function, no side effects
+  - No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Created `MemoryRankingResult` interface in `packages/ai/src/prompt/MemoryRankingResult.ts`
+  - `rankedSections: string[]` — section names ordered by priority (highest first)
+  - `priorities: Record<string, number>` — per-section priority scores
+  - Extensible for future EmbeddingRanking, LLMRanking implementations
+- Created `DefaultMemoryRanking` class in `packages/ai/src/prompt/DefaultMemoryRanking.ts`
+  - Implements `MemoryRanking`
+  - Fixed priority rules — no embedding, no cosine similarity, no LLM evaluation
+  - Priority order: userInput (100) > reflections (80) > observations (60) > memory (40) > worldState (20) > system (10)
+  - Only populated sections (defined and non-empty) are included
+  - `DEFAULT_RANKING_PRIORITY` exported as constant for external reuse
+  - Non-mutating, deterministic, pure
+  - Provider-agnostic (no OpenAI/DeepSeek binding)
+- No integration with Builder, Compression, or Renderer (deferred to future WOs)
+- Updated barrel exports:
+  - `prompt/index.ts`: exports `MemoryRanking` type, `DefaultMemoryRanking` class, `DEFAULT_RANKING_PRIORITY` constant, `MemoryRankingResult` type
+  - `src/index.ts`: exports `MemoryRanking` type, `DefaultMemoryRanking` class, `DEFAULT_RANKING_PRIORITY` constant, `MemoryRankingResult` type
+- Created ADR-0036: Memory Ranking Foundation
+- Added 33 new test cases in `MemoryRankingFoundation.test.ts` (covering 13 test groups):
+  - MemoryRanking Interface (3 tests): conformance, custom implementation, no dependencies
+  - MemoryRankingResult Interface (2 tests): rankedSections array, priorities record
+  - DEFAULT_RANKING_PRIORITY (3 tests): all fields defined, highest priority, lowest priority
+  - DefaultMemoryRanking — Empty Context (4 tests): empty, undefined fields, empty strings, all-empty
+  - DefaultMemoryRanking — Fixed Priority (5 tests): pairwise section ordering (all 5 adjacent pairs)
+  - DefaultMemoryRanking — Full Context (2 tests): all 6 sections in correct order, correct priority scores
+  - DefaultMemoryRanking — Non-mutating (1 test): input unchanged
+  - DefaultMemoryRanking — Partial Context (2 tests): only populated sections, single section
+  - Custom Ranking (1 test): reverse priority implementation
+  - RetryPlanner Compatibility (1 test): ranking is standalone
+  - ToolCallPlanner Compatibility (1 test): no interference
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop
+  - Backward Compatibility (2 tests): no breakage, no mutation
+  - Exports (5 tests): type and class, DEFAULT_RANKING_PRIORITY, MemoryRankingResult type, package root
+- All 757 tests pass (724 existing + 33 new)
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to any existing component
+- No breaking changes to any Public API
+- Architecture version v0.23

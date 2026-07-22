@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.22)
+> Project Genesis — AI Architecture Reference (v0.23)
 > Primary reference for all AI development.
 
 ---
@@ -236,6 +236,50 @@ interface PromptBudgetResult {
 - TokenBudget — real tokenizer (tiktoken, etc.)
 - ProviderBudget — provider-specific counting
 - ModelSpecificBudget — model-aware budget
+
+### MemoryRanking
+
+Pluggable ranking layer that determines section priority without modifying PromptContext.
+
+```typescript
+interface MemoryRanking {
+  rank(context: PromptContext): MemoryRankingResult
+}
+```
+
+- `rank()` — accepts `PromptContext`, returns `MemoryRankingResult`
+- Pure function: reads context, returns priority info — never modifies input
+- No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Not integrated with PromptBuilder or Compression (deferred to future WOs)
+
+**MemoryRankingResult:**
+```typescript
+interface MemoryRankingResult {
+  rankedSections: string[]            // Section names sorted by priority (highest first)
+  priorities: Record<string, number>  // Per-section priority scores
+}
+```
+
+**DefaultMemoryRanking** — fixed priority rules:
+
+| Section | Priority | Rationale |
+|---------|----------|-----------|
+| userInput | 100 (Highest) | What the user asked |
+| reflections | 80 | Task-specific AI insight |
+| observations | 60 | Current tool execution context |
+| memory | 40 | Conversation continuity |
+| worldState | 20 | Spatial context |
+| system | 10 (Lowest) | Static instructions |
+
+- Only populated sections included
+- Unknown sections get priority 0
+- `DEFAULT_RANKING_PRIORITY` exported as constant
+- Provider-agnostic (no OpenAI/DeepSeek binding)
+
+**Future implementations** (not implemented):
+- HeuristicRanking — score by recency, length, keyword match
+- EmbeddingRanking — semantic similarity via embeddings
+- LLMRanking — LLM-based importance evaluation
 
 ### AIRequest
 
