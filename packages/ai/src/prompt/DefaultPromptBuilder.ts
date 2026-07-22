@@ -7,6 +7,8 @@ import type { PromptRenderer } from './PromptRenderer'
 import type { PromptCompression } from './PromptCompression'
 import type { MemoryRanking } from './MemoryRanking'
 import type { PromptBudget } from './PromptBudget'
+import type { PromptSelection } from './PromptSelection'
+import type { PromptSelectionResult } from './PromptSelectionResult'
 import type { PromptBudgetResult } from './PromptBudgetResult'
 import type { MemoryRankingResult } from './MemoryRankingResult'
 import type { Observation } from '../agent'
@@ -15,6 +17,7 @@ import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 import { DefaultPromptCompression } from './DefaultPromptCompression'
 import { DefaultMemoryRanking } from './DefaultMemoryRanking'
 import { DefaultPromptBudget } from './DefaultPromptBudget'
+import { DefaultPromptSelection } from './DefaultPromptSelection'
 import { formatObservations as doFormat } from './modules/ObservationPromptModule'
 import { formatReflectionResults as doFormatReflection } from './modules/ReflectionPromptModule'
 
@@ -25,6 +28,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
     private readonly compression: PromptCompression = new DefaultPromptCompression(),
     private readonly ranking: MemoryRanking = new DefaultMemoryRanking(),
     private readonly budget: PromptBudget = new DefaultPromptBudget(),
+    private readonly selection: PromptSelection = new DefaultPromptSelection(),
   ) {}
 
   async build(context: PipelineContext): Promise<AIRequest> {
@@ -48,10 +52,21 @@ export class DefaultPromptBuilder implements PromptBuilder {
     // Phase 2: PromptBudget — calculate section sizes (pure measurement)
     const budgetResult: PromptBudgetResult = this.budget.calculate(promptContext)
 
-    // Phase 3: PromptCompression — clean up the context (returns new context)
-    const compressed = this.compression.compress(promptContext)
+    // Phase 3: PromptSelection — decide which sections to preserve (pure decision)
+    const selectionResult: PromptSelectionResult = this.selection.select(promptContext)
 
-    // Phase 4: PromptRenderer — convert to string
+    // Phase 4: Apply selection — create a new PromptContext with only selected sections
+    const selectedContext: PromptContext = {}
+    for (const key of Object.keys(promptContext) as (keyof PromptContext)[]) {
+      if (selectionResult.selectedSections.includes(key)) {
+        selectedContext[key] = promptContext[key]
+      }
+    }
+
+    // Phase 5: PromptCompression — clean up the context (returns new context)
+    const compressed = this.compression.compress(selectedContext)
+
+    // Phase 6: PromptRenderer — convert to string
     const rendered = this.renderer.render(compressed)
 
     // Build metadata with assembly info
@@ -60,6 +75,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
       promptAssembly: {
         ranking: rankingResult,
         budget: budgetResult,
+        selection: selectionResult,
       },
     }
 
@@ -92,12 +108,21 @@ export class DefaultPromptBuilder implements PromptBuilder {
       }
     }
 
-    // Full assembly pipeline (results are pure measurements, only compression modifies)
+    // Full assembly pipeline (results are pure measurements, only selection and compression modify)
     this.ranking.rank(promptContext)
     this.budget.calculate(promptContext)
+    const selectionResult = this.selection.select(promptContext)
+
+    // Apply selection before compression
+    const selectedContext: PromptContext = {}
+    for (const key of Object.keys(promptContext) as (keyof PromptContext)[]) {
+      if (selectionResult.selectedSections.includes(key)) {
+        selectedContext[key] = promptContext[key]
+      }
+    }
 
     // Apply compression before returning structured context
-    return this.compression.compress(promptContext)
+    return this.compression.compress(selectedContext)
   }
 
   /**

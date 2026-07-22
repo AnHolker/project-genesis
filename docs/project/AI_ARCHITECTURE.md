@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.24)
+> Project Genesis — AI Architecture Reference (v0.25)
 > Primary reference for all AI development.
 
 ---
@@ -26,11 +26,13 @@ MemoryRanking.rank()                 ← determines section priority (pure measu
     ↓
 PromptBudget.calculate()              ← measures section sizes (pure measurement)
     ↓
+PromptSelection.select()              ← decides which sections to preserve (pure decision)
+    ↓
 PromptCompression.compress()          ← cleans/strips PromptContext before render
     ↓
 PromptRenderer.render()              ← converts PromptContext to string
     ↓
-AIRequest { prompt, metadata }       ← metadata includes ranking & budget results
+AIRequest { prompt, metadata }       ← metadata includes ranking, budget & selection results
     ↓
 AgentLoop.execute(request, planner)  ← wraps Planner.plan() with iteration control
     ↓
@@ -109,9 +111,10 @@ interface PromptBuilder {
 - Executes the Prompt Assembly pipeline in order:
   1. `MemoryRanking.rank()` — determines section priority (pure measurement, does not modify context)
   2. `PromptBudget.calculate()` — measures section sizes (pure measurement, does not modify context)
-  3. `PromptCompression.compress()` — cleans/strips context (returns new PromptContext)
-  4. `PromptRenderer.render()` — converts compressed context to string
-- Attaches ranking and budget results to `AIRequest.metadata.promptAssembly`
+  3. `PromptSelection.select()` — decides which sections to preserve (pure decision, does not modify context)
+  4. `PromptCompression.compress()` — cleans/strips context (returns new PromptContext)
+  5. `PromptRenderer.render()` — converts compressed context to string
+- Attaches ranking, budget, and selection results to `AIRequest.metadata.promptAssembly`
 - Also exposes `buildContext(context): Promise<PromptContext>` for structured access (compressed)
 - The builder is the **only** component that constructs `AIRequest`
 - Cannot render strings — that is the Renderer's sole responsibility
@@ -124,10 +127,11 @@ constructor(
   compression?: PromptCompression,    // default: DefaultPromptCompression
   ranking?: MemoryRanking,            // default: DefaultMemoryRanking
   budget?: PromptBudget,              // default: DefaultPromptBudget
+  selection?: PromptSelection,        // default: DefaultPromptSelection
 )
 ```
 
-All optional parameters are fully backward compatible — existing 1-3 param constructors continue working unchanged.
+All optional parameters are fully backward compatible — existing 1-5 param constructors continue working unchanged.
 
 ### PromptRenderer
 
@@ -188,6 +192,8 @@ PromptModule[6]
        [MemoryRanking.rank()]            ← pure measurement → stored in metadata
                       ↓
        [PromptBudget.calculate()]         ← pure measurement → stored in metadata
+                      ↓
+       [PromptSelection.select()]         ← pure decision → stored in metadata
                       ↓
        [PromptCompression.compress()]     ← returns new, cleaned PromptContext
                       ↓
@@ -305,6 +311,40 @@ interface MemoryRankingResult {
 - HeuristicRanking — score by recency, length, keyword match
 - EmbeddingRanking — semantic similarity via embeddings
 - LLMRanking — LLM-based importance evaluation
+
+### PromptSelection
+
+Pluggable selection layer that decides which PromptContext sections should participate in the final prompt, without modifying the context.
+
+```typescript
+interface PromptSelection {
+  select(context: PromptContext): PromptSelectionResult
+}
+```
+
+- `select()` — accepts `PromptContext`, returns `PromptSelectionResult`
+- Pure function: reads context, returns decision — never modifies input
+- No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Slotted between Budget and Compression in the Prompt Assembly pipeline
+
+**PromptSelectionResult:**
+```typescript
+interface PromptSelectionResult {
+  selectedSections: string[]      // Sections to preserve
+  excludedSections: string[]       // Sections to exclude (empty for default)
+}
+```
+
+**DefaultPromptSelection** — pass-through implementation:
+- Preserves ALL populated sections (defined and non-empty)
+- Returns empty `excludedSections` array
+- Non-mutating, deterministic, pure, idempotent
+- Provider-agnostic (no OpenAI/DeepSeek binding)
+
+**Future implementations** (not implemented):
+- BudgetAwareSelection — exclude low-priority sections based on budget
+- EmbeddingSelection — relevance-based section selection
+- LLMSelection — LLM-based importance evaluation
 
 ### AIRequest
 
@@ -942,9 +982,9 @@ Order matters — modules appear in the prompt in array order.
 
 ---
 
-## Sprint 3 Final Architecture (v0.24)
+## Sprint 4 Final Architecture (v0.25)
 
-The complete architecture at the end of Sprint 3:
+The complete architecture at the end of Sprint 4:
 
 ```
 User Input
@@ -954,7 +994,7 @@ Pipeline.execute() / .stream()
 ┌──────────────────────────────────────────────────────────────┐
 │                  Prompt Assembly (PromptBuilder)              │
 │  PromptModules → PromptContext → MemoryRanking → PromptBudget │
-│  → PromptCompression → PromptRenderer → AIRequest            │
+│  → PromptSelection → PromptCompression → PromptRenderer → AIRequest │
 └──────────────────────────────────────────────────────────────┘
     ↓
 AgentLoop.execute()
@@ -999,7 +1039,7 @@ UI
 | Layer | Components | Responsibility |
 |-------|-----------|---------------|
 | **Pipeline** | `Pipeline.execute/stream`, `PipelineContext`, `PipelineEventEmitter` | AI entry point, lifecycle events |
-| **Prompt Assembly** | `PromptModule[6]`, `PromptContext`, `MemoryRanking`, `PromptBudget`, `PromptCompression`, `PromptRenderer` | Build prompt from modular sections |
+| **Prompt Assembly** | `PromptModule[6]`, `PromptContext`, `MemoryRanking`, `PromptBudget`, `PromptSelection`, `PromptCompression`, `PromptRenderer` | Build prompt from modular sections |
 | **Agent** | `AgentLoop`, `LoopStep`, `Observation`, `Reflection` | Multi-step iteration, tool calling, self-evaluation |
 | **Planning** | `Planner`, `PlannerResult`, `RetryPlanner`, `ToolCallPlanner` | Orchestrate provider calls with retry and tools |
 | **Provider** | `PlannerProvider`, `StreamingPlannerProvider`, `ToolCallingProvider`, `ProviderFactory` | LLM API abstraction |

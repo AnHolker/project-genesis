@@ -960,6 +960,58 @@
 - No code changes — documentation only
 - All 779 existing tests pass unchanged
 
+### WO-S4-001 — Prompt Selection Foundation
+
+- Created `PromptSelection` interface in `packages/ai/src/prompt/PromptSelection.ts`
+  - Single method: `select(context: PromptContext): PromptSelectionResult`
+  - Pure decision abstraction — no side effects, no mutation of input
+  - No dependencies on Planner, Provider, Runtime, or AgentLoop
+  - Pluggable interface for future BudgetAwareSelection, EmbeddingSelection, LLMSelection
+- Created `PromptSelectionResult` interface in `packages/ai/src/prompt/PromptSelectionResult.ts`
+  - `selectedSections: string[]` — sections to preserve in the final prompt
+  - `excludedSections: string[]` — sections to exclude (empty for default pass-through)
+- Created `DefaultPromptSelection` class in `packages/ai/src/prompt/DefaultPromptSelection.ts`
+  - Implements `PromptSelection`
+  - Preserves ALL populated sections (defined and non-empty)
+  - Returns empty `excludedSections` array
+  - Non-mutating, deterministic, pure, idempotent
+  - Provider-agnostic (works identically with Mock, OpenAI, DeepSeek)
+- Updated `DefaultPromptBuilder` to slot PromptSelection between Budget and Compression
+  - Constructor accepts optional sixth parameter `selection?: PromptSelection` (defaults to `DefaultPromptSelection`)
+  - `build()` now runs 7-phase pipeline: collect → rank → budget → select → apply → compress → render
+  - `buildContext()` also applies selection before compression
+  - Selection result attached to `AIRequest.metadata.promptAssembly.selection`
+  - All existing constructor signatures (1-param, 3-param, 5-param) continue working identically
+- Updated barrel exports:
+  - `prompt/index.ts`: exports `PromptSelection` type, `DefaultPromptSelection` class, `PromptSelectionResult` type
+  - `src/index.ts`: exports `PromptSelection` type, `DefaultPromptSelection` class, `PromptSelectionResult` type
+- Created ADR-0038: Prompt Selection Foundation
+- All 805 tests pass (764 existing + 41 new) with zero modifications to existing tests
+- New test groups in `PromptSelectionFoundation.test.ts` (41 tests, 16 groups):
+  - PromptSelection Interface (3 tests): interface conformance, custom implementation, no dependencies
+  - PromptSelectionResult Interface (3 tests): selectedSections, excludedSections, empty arrays
+  - DefaultPromptSelection — Empty Context (4 tests): empty, undefined, empty strings
+  - DefaultPromptSelection — Full Context (2 tests): all 6 sections, nothing excluded
+  - DefaultPromptSelection — Partial Context (2 tests): subset of sections, single section
+  - DefaultPromptSelection — Non-mutating (1 test): input unchanged
+  - DefaultPromptSelection — Deterministic (2 tests): identical output, idempotent
+  - Custom Selection (1 test): custom selection logic
+  - PromptBuilder Integration — Default Selection (3 tests): default, explicit, unchanged output
+  - PromptBuilder Integration — Custom Selection (2 tests): exclusion, 6-param constructor
+  - Execution Order (1 test): rank → budget → select → compress → render
+  - Assembly Metadata (2 tests): selection in metadata, alongside ranking/budget
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop and Reflection
+  - Backward Compatibility (4 tests): interfaces, immutability, 1-param vs 6-param, 3-param vs 5-param
+  - Exports (4 tests): type and class from prompt module and package root
+  - Immutability (1 test): context unchanged after build
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, PromptModule, PromptCompression, or PromptRenderer
+- No breaking changes to any Public API
+- Architecture version v0.25
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness

@@ -15,14 +15,14 @@
 
 | Item | Status |
 |------|--------|
-| Status | Sprint 3 **Completed** — Sprint 4 Upcoming |
-| Architecture Version | v0.24 (Sprint 3 Freeze) |
+| Status | Sprint 4 **In Progress** |
+| Architecture Version | v0.25 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptCompression → PromptRenderer → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptSelection → PromptCompression → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -105,6 +105,7 @@
 | ID | Title |
 |----|-------|
 | WO-S4-000 | Project Development Standards Foundation |
+| WO-S4-001 | Prompt Selection Foundation |
 
 ---
 
@@ -250,10 +251,14 @@ interface PromptRenderer {
 //   ObservationPromptModule.buildContext() → { observations: "..." }
 //   ReflectionPromptModule.buildContext()  → { reflections: "..." }
 //
-// PromptBuilder collects PromptContext → PromptRenderer renders to string
+// PromptBuilder collects PromptContext → PromptSelection decides which sections → PromptRenderer renders to string
 //
-// DefaultPromptBuilder now accepts an optional PromptRenderer
+// DefaultPromptBuilder now accepts optional PromptRenderer, PromptCompression, MemoryRanking, PromptBudget, and PromptSelection
 //   (defaults to DefaultPromptRenderer — renders in insertion order)
+//   (defaults to DefaultPromptCompression — strips undefined/empty fields)
+//   (defaults to DefaultMemoryRanking — fixed priority ranking)
+//   (defaults to DefaultPromptBudget — character count budget)
+//   (defaults to DefaultPromptSelection — preserves all sections)
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
@@ -523,12 +528,16 @@ PromptBuilder composition flow:
   PromptModule[6]
     ├── Each module.buildContext() → Partial<PromptContext>
     ├── Merge into unified PromptContext
-    └── Serialize to string via module-order mapping → AIRequest
+    ├── MemoryRanking → pure measurement (ranks sections)
+    ├── PromptBudget → pure measurement (measures sizes)
+    ├── PromptSelection → decides which sections to preserve
+    ├── PromptCompression → strips undefined/empty fields
+    └── PromptRenderer → serializes to string → AIRequest
 
   PromptContext fields:
     system?, userInput?, memory?, worldState?, observations?, reflections?
 
-  DefaultPromptBuilder.buildContext(context) → PromptContext (structured, no serialization)
+  DefaultPromptBuilder.buildContext(context) → PromptContext (compressed, pipeline run)
   serializePromptContext(ctx: PromptContext) → string (standalone serialization)
 ```
 
@@ -636,6 +645,12 @@ Key remaining items:
 | ADR-0030 | Reflection Foundation | `docs/adr/ADR-0030-reflection-foundation.md` |
 | ADR-0031 | Reflection Prompt Integration | `docs/adr/ADR-0031-reflection-prompt-integration.md` |
 | ADR-0032 | Structured Prompt Context | `docs/adr/ADR-0032-structured-prompt-context.md` |
+| ADR-0033 | Prompt Renderer Foundation | `docs/adr/ADR-0033-prompt-renderer-foundation.md` |
+| ADR-0034 | Context Compression Foundation | `docs/adr/ADR-0034-context-compression-foundation.md` |
+| ADR-0035 | Prompt Budget Foundation | `docs/adr/ADR-0035-prompt-budget-foundation.md` |
+| ADR-0036 | Memory Ranking Foundation | `docs/adr/ADR-0036-memory-ranking-foundation.md` |
+| ADR-0037 | Prompt Assembly Integration | `docs/adr/ADR-0037-prompt-assembly-integration.md` |
+| ADR-0038 | Prompt Selection Foundation | `docs/adr/ADR-0038-prompt-selection-foundation.md` |
 
 ---
 
