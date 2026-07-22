@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.16)
+> Project Genesis — AI Architecture Reference (v0.17)
 > Primary reference for all AI development.
 
 ---
@@ -411,6 +411,9 @@ for iteration = 1 to maxIterations:
   │         │       Use PromptBuilder.formatObservationsInline() for prompt text
   │         │       Append formatted text to request prompt
   │         └── No: break (finished = false)
+  ├── Run reflection (if available):
+  │       reflection.execute({ plannerResult, observations, steps, iteration, maxIterations })
+  │       → ReflectionResult (recorded, not acted upon)
   └── Emit: LoopIterationFinished
     ↓
 AgentLoopResult { plannerResult, steps: [LoopStep with observations], iterations, finished }
@@ -428,6 +431,7 @@ Return AgentLoopResult
 4. **Tool call detection** — Tool calls are read from `PlannerResult.metadata.toolCalls`. Each tool is executed via `ToolRegistry` and observations are recorded as structured `Observation[]` in `LoopStep`.
 5. **Structured Observation Context** — Since WO-S3-011, AgentLoop maintains an `Observation[]` array passed to the Planner via `request.metadata.observations`. LoopStep references Observation objects (no data duplication).
 6. **Planner Observation Awareness** — Since WO-S3-012, AgentLoop no longer formats observation prompt text inline. All observation formatting is delegated to PromptBuilder (`formatObservations`/`formatObservationsInline` in `ObservationPromptModule.ts`). AgentLoop only maintains and writes observations.
+7. **Reflection Foundation** — Since WO-S3-013, `DefaultAgentLoop` accepts an optional `Reflection` via constructor. After each iteration, it calls `reflection.execute()` with the current state. Results are recorded in `AgentLoopResult.reflectionResults` but do NOT affect loop behavior. See ADR-0030.
 6. **Events** — Six events (`AgentLoopStarted`, `LoopIterationStarted`, `ToolExecuted`, `ObservationRecorded`, `LoopIterationFinished`, `AgentLoopFinished`) provide full observability.
 6. **No Runtime dependency** — AgentLoopContext accepts `request`, `planner`, and optional `toolRegistry`. It has no reference to Runtime.
 
@@ -455,7 +459,8 @@ Return AgentLoopResult
 
 ### Future (Not Yet Implemented)
 
-- Reflection (self-critique)
+- LLM-based Reflection (self-critique)
+- Auto re-plan from ReflectionResult
 - Context compression between iterations
 - Replay
 - Memory Ranking

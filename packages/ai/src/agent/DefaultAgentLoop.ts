@@ -4,6 +4,9 @@ import type { AgentLoopResult } from './AgentLoopResult'
 import type { LoopStep } from './AgentLoopStep'
 import type { Observation } from './Observation'
 import type { PlannerResult } from '../planner'
+import type { Reflection } from '../reflection'
+import type { ReflectionContext } from '../reflection'
+import type { ReflectionResult } from '../reflection'
 import { PipelineEventEmitter } from '../events'
 import { formatObservationsInline } from '../prompt/modules/ObservationPromptModule'
 
@@ -33,6 +36,11 @@ import { formatObservationsInline } from '../prompt/modules/ObservationPromptMod
  */
 export class DefaultAgentLoop implements AgentLoop {
   readonly events = new PipelineEventEmitter()
+  private readonly reflection?: Reflection
+
+  constructor(reflection?: Reflection) {
+    this.reflection = reflection
+  }
 
   async execute(context: AgentLoopContext): Promise<AgentLoopResult> {
     const maxIterations = context.maxIterations
@@ -40,6 +48,7 @@ export class DefaultAgentLoop implements AgentLoop {
     let currentRequest = context.request
     let finalPlannerResult: PlannerResult = { actions: [] }
     let loopFinished = false
+    const reflectionResults: ReflectionResult[] = []
 
     // Structured observations maintained across all iterations
     const structuredObservations: Observation[] = []
@@ -78,6 +87,9 @@ export class DefaultAgentLoop implements AgentLoop {
 
         finalPlannerResult = plannerResult
         loopFinished = true
+
+        // Run reflection (if available) before ending the iteration
+        await this.runReflection(plannerResult, structuredObservations, steps, iteration, maxIterations, reflectionResults)
 
         // Emit LoopIterationFinished
         this.events.emit({
@@ -208,6 +220,9 @@ export class DefaultAgentLoop implements AgentLoop {
         loopFinished = true
       }
 
+      // Run reflection (if available) before ending the iteration
+      await this.runReflection(plannerResult, structuredObservations, steps, iteration, maxIterations, reflectionResults)
+
       // Emit LoopIterationFinished
       this.events.emit({
         type: 'LoopIterationFinished',
@@ -226,6 +241,7 @@ export class DefaultAgentLoop implements AgentLoop {
       steps,
       iterations: steps.length,
       finished: finalPlannerResult.actions.length > 0,
+      reflectionResults: reflectionResults.length > 0 ? reflectionResults : undefined,
     }
 
     // Emit AgentLoopFinished
@@ -276,5 +292,35 @@ export class DefaultAgentLoop implements AgentLoop {
       return []
     }
     return raw as Array<{ name: string; input: unknown }>
+  }
+
+  /**
+   * Run reflection on the current planning state.
+   * If a Reflection implementation is available, calls it with the
+   * accumulated context and records the result.
+   *
+   * Currently, the reflection result is recorded but does not affect
+   * loop control. This is reserved for future WO.
+   */
+  private async runReflection(
+    plannerResult: PlannerResult,
+    observations: Observation[],
+    steps: LoopStep[],
+    iteration: number,
+    maxIterations: number,
+    reflectionResults: ReflectionResult[],
+  ): Promise<void> {
+    if (!this.reflection) return
+
+    const reflectionContext: ReflectionContext = {
+      plannerResult,
+      observations,
+      steps,
+      iteration,
+      maxIterations,
+    }
+
+    const result = await this.reflection.execute(reflectionContext)
+    reflectionResults.push(result)
   }
 }

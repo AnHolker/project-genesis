@@ -16,11 +16,11 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.16 |
+| Architecture Version | v0.17 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations) |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
 | Prompt Pipeline | Complete — ObservationPromptModule → SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
@@ -87,6 +87,7 @@
 | WO-S3-010 | Multi-Step Agent Loop |
 | WO-S3-011 | Structured Observation Context |
 | WO-S3-012 | Planner Observation Awareness |
+| WO-S3-013 | Reflection Foundation |
 
 ---
 
@@ -287,6 +288,41 @@ interface Observation {
 - Passed to Planner via AIRequest.metadata.observations
 - Prompt formatting owned by PromptBuilder (ObservationPromptModule + formatObservations)
 
+### Reflection
+
+```typescript
+interface Reflection {
+  execute(context: ReflectionContext): Promise<ReflectionResult>
+}
+
+interface ReflectionContext {
+  plannerResult: PlannerResult
+  observations: Observation[]
+  steps: LoopStep[]
+  iteration: number
+  maxIterations: number
+  metadata?: Record<string, unknown>
+}
+
+interface ReflectionResult {
+  reasoning: string
+  continueLoop: boolean
+  metadata?: Record<string, unknown>
+}
+
+class DefaultReflection implements Reflection {
+  // Simple rule-based reflection:
+  // - Actions present → continueLoop=false
+  // - Max iterations reached → continueLoop=false
+  // - Otherwise → continueLoop=true
+}
+```
+
+- Independent capability: no Runtime, Renderer, Provider, or Planner dependency
+- Results recorded in AgentLoopResult.reflectionResults
+- Currently does NOT affect AgentLoop behavior (future WO)
+- DefaultReflection provides deterministic baseline
+
 ### AgentLoop
 
 ```typescript
@@ -324,6 +360,7 @@ class DefaultAgentLoop implements AgentLoop {
   // Each iteration: attach observations → plan → check actions → execute tools → observe → repeat
   // Observations passed to planner via request.metadata.observations
   // Observation prompt formatting delegated to PromptBuilder (formatObservationsInline)
+  // Optional Reflection: evaluates planning state, recorded in reflectionResults (no behavior impact)
   // LoopStep references Observation objects (no data duplication)
   // Stop conditions: Planner returns actions, or maxIterations reached
   // Events: AgentLoopStarted → LoopIterationStarted → [ToolExecuted] → [ObservationRecorded] → LoopIterationFinished → ... → AgentLoopFinished

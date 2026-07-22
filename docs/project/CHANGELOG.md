@@ -612,3 +612,41 @@
 - TypeScript 0 errors, ESLint 0 errors
 - Created ADR-0029: Planner Observation Awareness
 - Updated PROJECT_STATE.md (v0.16), AI_ARCHITECTURE.md (v0.16)
+
+### WO-S3-013 — Reflection Foundation
+
+- Created `packages/ai/src/reflection/` module with:
+  - `Reflection` interface — single `execute(context): Promise<ReflectionResult>` contract
+  - `ReflectionContext` — self-contained context with `plannerResult`, `observations`, `steps`, `iteration`, `maxIterations`, `metadata?`
+  - `ReflectionResult` — output with `reasoning`, `continueLoop`, `metadata?`
+  - `DefaultReflection` — simple rule-based implementation:
+    - Actions present → `continueLoop = false` (task done)
+    - Max iterations reached → `continueLoop = false` (out of runway)
+    - Otherwise → `continueLoop = true` (keep going)
+  - `index.ts` — barrel export
+- Updated `AgentLoopResult` interface with optional `reflectionResults?: ReflectionResult[]`
+- Updated `DefaultAgentLoop`:
+  - Constructor accepts optional `Reflection` parameter
+  - After each iteration, calls `reflection.execute()` with current state
+  - Results collected in `reflectionResults` on `AgentLoopResult`
+  - **Reflection does NOT affect loop behavior** — results recorded only
+- Updated barrel exports: `src/index.ts` exports `Reflection`, `ReflectionContext`, `ReflectionResult`, `DefaultReflection`
+- No changes to: Planner interface, PlannerProvider, StreamingPlannerProvider, ToolCallingProvider, ToolCallPlanner, RetryPlanner, Pipeline, PipelineContext, PromptBuilder, Runtime, Renderer, Tool, RuntimeQuery
+- All 502 existing tests pass with zero modifications
+- Added 34 new test cases in `ReflectionFoundation.test.ts` (covering 11 test groups):
+  - Reflection Interface (4 tests): interface conformance, context/result shapes, optional metadata
+  - DefaultReflection Basic Rules (4 tests): actions present, max iterations, continue, observations
+  - DefaultReflection Edge Cases (4 tests): iteration=1 with actions, maxIterations=1, empty observations, multiple observations
+  - DefaultReflection Metadata (1 test): no metadata by default
+  - AgentLoop with Reflection (6 tests): reflectionResults presence, reasoning, multi-step, multi-iteration, correct conclusions
+  - AgentLoop Custom Reflection (3 tests): context passthrough, iteration tracking, observation passthrough
+  - Reflection Does Not Change Behavior (3 tests): same result structure, reflection says continue/stop but loop unchanged
+  - Backward Compatibility (4 tests): no reflection constructor, events, tool events, observation format
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (1 test): transparent to streaming path
+  - Provider Compatibility (2 tests): mock planner, empty result
+- All 536 tests pass (502 existing + 34 new)
+- TypeScript 0 errors, ESLint 0 errors
+- Created ADR-0030: Reflection Foundation
+- Updated PROJECT_STATE.md (v0.17), AI_ARCHITECTURE.md (v0.17)
