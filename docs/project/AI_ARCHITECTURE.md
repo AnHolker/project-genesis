@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.23)
+> Project Genesis — AI Architecture Reference (v0.24)
 > Primary reference for all AI development.
 
 ---
@@ -12,21 +12,25 @@ User Natural Language
     ↓
 Pipeline.execute(PipelineContext)
     ↓
-PromptBuilder.build(context)         ← composes prompt from PromptModule[6]
+PromptBuilder.build(context)         ← Prompt Assembly Orchestrator
     ├── ObservationPromptModule         ← reads context.metadata.observations
     ├── SystemPromptModule              ← system instructions, action schema
     ├── UserInputModule                 ← context.input
     ├── MemoryPromptModule              ← conversation history from Memory
     ├── WorldStatePromptModule          ← context.worldState
-    └── ReflectionPromptModule          ← NEW: reads context.metadata.reflectionResults
+    └── ReflectionPromptModule          ← reads context.metadata.reflectionResults
     ↓
 PromptContext (structured intermediate)
     ↓
-PromptCompression.compress()         ← compresses PromptContext before render
+MemoryRanking.rank()                 ← determines section priority (pure measurement)
+    ↓
+PromptBudget.calculate()              ← measures section sizes (pure measurement)
+    ↓
+PromptCompression.compress()          ← cleans/strips PromptContext before render
     ↓
 PromptRenderer.render()              ← converts PromptContext to string
     ↓
-AIRequest { prompt }
+AIRequest { prompt, metadata }       ← metadata includes ranking & budget results
     ↓
 AgentLoop.execute(request, planner)  ← wraps Planner.plan() with iteration control
     ↓
@@ -92,7 +96,7 @@ interface PipelineContext {
 
 ### PromptBuilder
 
-Composes the `AIRequest.prompt` string from modular fragments via structured `PromptContext`, `PromptCompression`, and `PromptRenderer`.
+The **Prompt Assembly Orchestrator**. Composes the `AIRequest.prompt` string by orchestrating the full Prompt Pipeline:
 
 ```typescript
 interface PromptBuilder {
@@ -102,11 +106,28 @@ interface PromptBuilder {
 
 - Iterates over `PromptModule[]` and collects structured `PromptContext` via each module's `buildContext()` method
 - Merges partial contexts into a unified `PromptContext`
-- Applies `PromptCompression.compress()` to clean/strip the context
-- Delegates string rendering to `PromptRenderer.render()` (default: `DefaultPromptRenderer`)
+- Executes the Prompt Assembly pipeline in order:
+  1. `MemoryRanking.rank()` — determines section priority (pure measurement, does not modify context)
+  2. `PromptBudget.calculate()` — measures section sizes (pure measurement, does not modify context)
+  3. `PromptCompression.compress()` — cleans/strips context (returns new PromptContext)
+  4. `PromptRenderer.render()` — converts compressed context to string
+- Attaches ranking and budget results to `AIRequest.metadata.promptAssembly`
 - Also exposes `buildContext(context): Promise<PromptContext>` for structured access (compressed)
 - The builder is the **only** component that constructs `AIRequest`
 - Cannot render strings — that is the Renderer's sole responsibility
+
+**Constructor:**
+```typescript
+constructor(
+  modules: PromptModule[],
+  renderer?: PromptRenderer,          // default: DefaultPromptRenderer
+  compression?: PromptCompression,    // default: DefaultPromptCompression
+  ranking?: MemoryRanking,            // default: DefaultMemoryRanking
+  budget?: PromptBudget,              // default: DefaultPromptBudget
+)
+```
+
+All optional parameters are fully backward compatible — existing 1-3 param constructors continue working unchanged.
 
 ### PromptRenderer
 
@@ -151,7 +172,7 @@ Current modules (in composition order):
 5. **WorldStatePromptModule** — wraps `context.worldState` in a "Current World:" header section
 6. **ReflectionPromptModule** — reads `context.metadata?.reflectionResults` and formats them as a "## Previous Reflection" section. This is the canonical formatting — all reflection prompt text originates from PromptBuilder.
 
-### Prompt Composition Order (via PromptContext)
+### Prompt Composition Order (via Prompt Assembly)
 
 ```
 PromptModule[6]
@@ -164,16 +185,20 @@ PromptModule[6]
                       ↓
             Merge into PromptContext
                       ↓
-            PromptCompression.compress(PromptContext)  ← NEW
+       [MemoryRanking.rank()]            ← pure measurement → stored in metadata
                       ↓
-            PromptRenderer.render(PromptContext)
+       [PromptBudget.calculate()]         ← pure measurement → stored in metadata
                       ↓
-            AIRequest { prompt }
+       [PromptCompression.compress()]     ← returns new, cleaned PromptContext
+                      ↓
+       [PromptRenderer.render()]          ← converts PromptContext to string
+                      ↓
+            AIRequest { prompt, metadata.promptAssembly }
 
 PromptContext (structured intermediate representation):
   { system?, userInput?, memory?, worldState?, observations?, reflections? }
 
-DefaultPromptBuilder.buildContext(context) → PromptContext (compressed)
+DefaultPromptBuilder.buildContext(context) → PromptContext (compressed, pipeline run)
 serializePromptContext(ctx: PromptContext) → string (delegates to DefaultPromptRenderer)
 
 DefaultPromptRenderer (implements PromptRenderer):

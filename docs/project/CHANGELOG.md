@@ -896,3 +896,44 @@
 - No modifications to any existing component
 - No breaking changes to any Public API
 - Architecture version v0.23
+
+### WO-S3-020 — Prompt Assembly Integration
+
+- **DefaultPromptBuilder is now the Prompt Assembly Orchestrator**
+  - Constructor extended with 2 new optional parameters (fully backward compatible):
+    - `ranking?: MemoryRanking` — defaults to `DefaultMemoryRanking` (4th param)
+    - `budget?: PromptBudget` — defaults to `DefaultPromptBudget` (5th param)
+  - Existing 1-param `(modules)` and 3-param `(modules, renderer, compression)` signatures unchanged
+- **Full Prompt Assembly pipeline in `build()`:**
+  1. Module Collection → PromptContext (from PromptModule[].buildContext())
+  2. MemoryRanking.rank() — determines section priority (pure measurement)
+  3. PromptBudget.calculate() — measures section sizes (pure measurement)
+  4. PromptCompression.compress() — cleans context (returns new PromptContext)
+  5. PromptRenderer.render() — converts to final string
+- **Assembly metadata on AIRequest:**
+  - Ranking and Budget results are attached to `AIRequest.metadata.promptAssembly`
+  - `{ promptAssembly: { ranking: MemoryRankingResult, budget: PromptBudgetResult } }`
+  - Existing metadata keys are preserved
+- **buildContext() also runs the full pipeline** (ranking and budget run, compression output flows through)
+- All five sub-components remain zero-coupled:
+  - Ranking does NOT call Compression
+  - Budget does NOT call Ranking
+  - Renderer does NOT call Compression
+  - Builder is the ONLY orchestrator
+- Created ADR-0037: Prompt Assembly Integration
+- Added 27 new test cases in `PromptAssemblyIntegration.test.ts` (covering 9 test groups):
+  - Default Constructor (5 tests): backward compat, assembly metadata, ranking/budget in metadata, existing metadata preservation
+  - Execution Order (1 test): verified rank → budget → compress → render
+  - Custom Components (4 tests): custom ranking, custom budget, custom renderer, custom compression
+  - buildContext (2 tests): compressed output, empty field stripping
+  - Existing Prompt Modules (6 tests): all 6 modules via build()
+  - Backward Compatibility (4 tests): 3-param identical output, legacy module, mixed, module order
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop and Reflection
+- All 764 tests pass (736 existing + 28 new)
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, or any interfaces
+- No breaking changes to any Public API
+- Architecture version v0.24

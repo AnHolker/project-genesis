@@ -5,10 +5,16 @@ import type { AIRequest } from '../request'
 import type { PromptContext } from './PromptContext'
 import type { PromptRenderer } from './PromptRenderer'
 import type { PromptCompression } from './PromptCompression'
+import type { MemoryRanking } from './MemoryRanking'
+import type { PromptBudget } from './PromptBudget'
+import type { PromptBudgetResult } from './PromptBudgetResult'
+import type { MemoryRankingResult } from './MemoryRankingResult'
 import type { Observation } from '../agent'
 import type { ReflectionResult } from '../reflection'
 import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 import { DefaultPromptCompression } from './DefaultPromptCompression'
+import { DefaultMemoryRanking } from './DefaultMemoryRanking'
+import { DefaultPromptBudget } from './DefaultPromptBudget'
 import { formatObservations as doFormat } from './modules/ObservationPromptModule'
 import { formatReflectionResults as doFormatReflection } from './modules/ReflectionPromptModule'
 
@@ -17,6 +23,8 @@ export class DefaultPromptBuilder implements PromptBuilder {
     private readonly modules: PromptModule[],
     private readonly renderer: PromptRenderer = new DefaultPromptRenderer(),
     private readonly compression: PromptCompression = new DefaultPromptCompression(),
+    private readonly ranking: MemoryRanking = new DefaultMemoryRanking(),
+    private readonly budget: PromptBudget = new DefaultPromptBudget(),
   ) {}
 
   async build(context: PipelineContext): Promise<AIRequest> {
@@ -34,19 +42,34 @@ export class DefaultPromptBuilder implements PromptBuilder {
       }
     }
 
-    // Apply compression to the structured PromptContext
+    // Phase 1: MemoryRanking — determine section priority (pure measurement)
+    const rankingResult: MemoryRankingResult = this.ranking.rank(promptContext)
+
+    // Phase 2: PromptBudget — calculate section sizes (pure measurement)
+    const budgetResult: PromptBudgetResult = this.budget.calculate(promptContext)
+
+    // Phase 3: PromptCompression — clean up the context (returns new context)
     const compressed = this.compression.compress(promptContext)
 
-    // Use PromptRenderer for the structured content
+    // Phase 4: PromptRenderer — convert to string
     const rendered = this.renderer.render(compressed)
+
+    // Build metadata with assembly info
+    const metadata: Record<string, unknown> = {
+      ...(context.metadata ?? {}),
+      promptAssembly: {
+        ranking: rankingResult,
+        budget: budgetResult,
+      },
+    }
 
     // Append legacy module output if any
     if (legacySections.length > 0) {
       const allParts = [rendered, ...legacySections].filter(Boolean)
-      return { prompt: allParts.join('\n') }
+      return { prompt: allParts.join('\n'), metadata }
     }
 
-    return { prompt: rendered }
+    return { prompt: rendered, metadata }
   }
 
   /**
@@ -68,6 +91,10 @@ export class DefaultPromptBuilder implements PromptBuilder {
         Object.assign(promptContext, ctx)
       }
     }
+
+    // Full assembly pipeline (results are pure measurements, only compression modifies)
+    this.ranking.rank(promptContext)
+    this.budget.calculate(promptContext)
 
     // Apply compression before returning structured context
     return this.compression.compress(promptContext)

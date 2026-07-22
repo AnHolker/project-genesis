@@ -16,12 +16,12 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.23 |
+| Architecture Version | v0.24 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → PromptCompression → PromptRenderer → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptCompression → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -94,6 +94,7 @@
 | WO-S3-017 | Context Compression Foundation |
 | WO-S3-018 | Prompt Budget Foundation |
 | WO-S3-019 | Memory Ranking Foundation |
+| WO-S3-020 | Prompt Assembly Integration |
 
 ---
 
