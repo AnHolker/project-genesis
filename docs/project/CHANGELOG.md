@@ -959,3 +959,28 @@
 - Updated `PROJECT_STATE.md` — Sprint 3 marked Completed, Sprint 4 upcoming
 - No code changes — documentation only
 - All 779 existing tests pass unchanged
+
+---
+
+## Sprint 4 — AI Polish & Production Readiness
+
+### WO-S4-000 — Project Development Standards Foundation
+
+- Created `docs/project/AI_DEVELOPMENT_STANDARD.md` (v1.0)
+  - Permanent engineering workflow for AI-assisted development
+  - 9 development principles: Architecture First, Backward Compatibility, Foundation Before Feature, Composition Over Modification, Single Responsibility, No Temporary Hacks, No Dead Code, Immutable Preferred, Pure Functions Preferred
+  - Testing requirements: TypeScript 0 errors, ESLint 0 errors, Vitest all pass, backward compatibility verified
+  - Documentation requirements: ADR, PROJECT_STATE, AI_ARCHITECTURE, CHANGELOG per WO
+  - Standard delivery format: Changed Files, Architecture, Compatibility, Tests, Build Status, Documentation, Risks
+- Created `docs/project/ARCHITECTURE_PRINCIPLES.md` (v1.0)
+  - Permanent architecture rules for all development
+  - Layering: Pipeline → PromptBuilder → Planner → Provider → AgentLoop → Runtime
+  - Dependency rules: one-way only, no circular, dependency inversion preferred
+  - Module responsibilities table: each component owns exactly one responsibility
+  - Extension strategy: composition over modification, inject via constructor
+  - Prompt pipeline strict order: Context → Ranking → Budget → Selection → Compression → Renderer
+  - Agent principles: Planner plans, Provider communicates, AgentLoop executes, Reflection observes, Tool executes
+  - Future evolution extension points: 13 documented expected extension points
+- Updated `PROJECT_STATE.md` — Sprint 4 section, new rows for Development Standards and Architecture Principles
+- No runtime code changes — documentation only
+- All 779 existing tests pass unchanged

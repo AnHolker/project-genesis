@@ -28,6 +28,8 @@
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
 | Backend Status | None |
 | Networking Status | None |
+| Development Standards | **Established** — AI_DEVELOPMENT_STANDARD.md v1.0 |
+| Architecture Principles | **Established** — ARCHITECTURE_PRINCIPLES.md v1.0 |
 
 ---
 
@@ -96,6 +98,13 @@
 | WO-S3-018 | Prompt Budget Foundation |
 | WO-S3-019 | Memory Ranking Foundation |
 | WO-S3-020 | Prompt Assembly Integration |
+| WO-S3-021 | Sprint 3 Freeze |
+
+### Sprint 4 — AI Polish & Production Readiness
+
+| ID | Title |
+|----|-------|
+| WO-S4-000 | Project Development Standards Foundation |
 
 ---
 
