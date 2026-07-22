@@ -4,9 +4,11 @@ import type { PipelineContext } from '../pipeline'
 import type { AIRequest } from '../request'
 import type { PromptContext } from './PromptContext'
 import type { PromptRenderer } from './PromptRenderer'
+import type { PromptCompression } from './PromptCompression'
 import type { Observation } from '../agent'
 import type { ReflectionResult } from '../reflection'
 import { DefaultPromptRenderer } from './DefaultPromptRenderer'
+import { DefaultPromptCompression } from './DefaultPromptCompression'
 import { formatObservations as doFormat } from './modules/ObservationPromptModule'
 import { formatReflectionResults as doFormatReflection } from './modules/ReflectionPromptModule'
 
@@ -14,6 +16,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
   constructor(
     private readonly modules: PromptModule[],
     private readonly renderer: PromptRenderer = new DefaultPromptRenderer(),
+    private readonly compression: PromptCompression = new DefaultPromptCompression(),
   ) {}
 
   async build(context: PipelineContext): Promise<AIRequest> {
@@ -31,8 +34,11 @@ export class DefaultPromptBuilder implements PromptBuilder {
       }
     }
 
+    // Apply compression to the structured PromptContext
+    const compressed = this.compression.compress(promptContext)
+
     // Use PromptRenderer for the structured content
-    const rendered = this.renderer.render(promptContext)
+    const rendered = this.renderer.render(compressed)
 
     // Append legacy module output if any
     if (legacySections.length > 0) {
@@ -63,7 +69,8 @@ export class DefaultPromptBuilder implements PromptBuilder {
       }
     }
 
-    return promptContext
+    // Apply compression before returning structured context
+    return this.compression.compress(promptContext)
   }
 
   /**

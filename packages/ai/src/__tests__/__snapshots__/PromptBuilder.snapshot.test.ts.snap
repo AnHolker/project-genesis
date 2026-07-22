@@ -135,7 +135,5 @@ Respond with ONLY valid JSON. No markdown. No code fences. Pure JSON object:
 {"actions": [{"type": "CreateEntity", "entityType": "tree", "x": 5, "y": 3}]}
 
 If the input cannot be translated to actions, return {"actions": []}.
-增加一棵树
-
-"
+增加一棵树"
 `;

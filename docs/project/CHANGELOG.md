@@ -768,3 +768,44 @@
 - No Planner, Provider, Pipeline, AgentLoop, Runtime, or Renderer modifications
 - No breaking changes to any Public API
 - Architecture version v0.20
+
+### WO-S3-017 — Context Compression Foundation
+
+- Created `PromptCompression` interface in `packages/ai/src/prompt/PromptCompression.ts`
+  - Single method: `compress(context: PromptContext): PromptContext`
+  - Pluggable abstraction between PromptContext assembly and rendering
+  - No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Created `DefaultPromptCompression` class in `packages/ai/src/prompt/DefaultPromptCompression.ts`
+  - Implements `PromptCompression`
+  - Removes `undefined` and empty string `''` fields from PromptContext
+  - Returns a NEW object (does not mutate input)
+  - Idempotent: compress(compress(ctx)) === compress(ctx)
+  - Deterministic and side-effect free
+- Updated `DefaultPromptBuilder` to use `PromptCompression`
+  - Constructor accepts optional third parameter `compression?: PromptCompression` (defaults to `DefaultPromptCompression`)
+  - `build()` now: collects PromptContext from modules → compression.compress() → renderer.render() → AIRequest
+  - `buildContext()` now applies compression before returning
+  - Output is identical to previous version (default compression only strips empty/undefined)
+- Updated barrel exports:
+  - `prompt/index.ts`: exports `PromptCompression` type and `DefaultPromptCompression` class
+  - `src/index.ts`: exports `PromptCompression` type and `DefaultPromptCompression` class
+- Created ADR-0034: Context Compression Foundation
+- Added 54 new test cases in `PromptCompressionFoundation.test.ts` (covering 13 test groups):
+  - PromptCompression Interface (3 tests): conformance, custom implementation, no dependencies
+  - DefaultPromptCompression (8 tests): non-mutating, field preservation, undefined removal, empty string removal, all-empty, empty input, idempotence, full preservation
+  - DefaultPromptBuilder Compression Integration (4 tests): default compression, custom compression, identical output, empty field stripping
+  - buildContext Compression Integration (2 tests): compressed output, undefined stripping
+  - Renderer Compatibility (2 tests): renderer after compression, module order preservation
+  - Existing Prompt Modules Compatibility (6 tests): all 6 modules via build()
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop and Reflection
+  - Backward Compatibility (2 tests): legacy modules, mixed modules
+  - Custom Compression (2 tests): noop passthrough, field-level filtering
+  - Exports (3 tests): type and class from prompt module, class from package root
+- All 689 tests pass (635 existing + 54 new)
+- TypeScript 0 errors, ESLint 0 errors
+- No Planner, Provider, Pipeline, AgentLoop, Runtime, Tool, PromptModule, or PromptRenderer modifications
+- No breaking changes to any Public API
+- Architecture version v0.21

@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.20)
+> Project Genesis — AI Architecture Reference (v0.21)
 > Primary reference for all AI development.
 
 ---
@@ -19,6 +19,12 @@ PromptBuilder.build(context)         ← composes prompt from PromptModule[6]
     ├── MemoryPromptModule              ← conversation history from Memory
     ├── WorldStatePromptModule          ← context.worldState
     └── ReflectionPromptModule          ← NEW: reads context.metadata.reflectionResults
+    ↓
+PromptContext (structured intermediate)
+    ↓
+PromptCompression.compress()         ← compresses PromptContext before render
+    ↓
+PromptRenderer.render()              ← converts PromptContext to string
     ↓
 AIRequest { prompt }
     ↓
@@ -86,7 +92,7 @@ interface PipelineContext {
 
 ### PromptBuilder
 
-Composes the `AIRequest.prompt` string from modular fragments via structured `PromptContext` and `PromptRenderer`.
+Composes the `AIRequest.prompt` string from modular fragments via structured `PromptContext`, `PromptCompression`, and `PromptRenderer`.
 
 ```typescript
 interface PromptBuilder {
@@ -96,8 +102,9 @@ interface PromptBuilder {
 
 - Iterates over `PromptModule[]` and collects structured `PromptContext` via each module's `buildContext()` method
 - Merges partial contexts into a unified `PromptContext`
+- Applies `PromptCompression.compress()` to clean/strip the context
 - Delegates string rendering to `PromptRenderer.render()` (default: `DefaultPromptRenderer`)
-- Also exposes `buildContext(context): Promise<PromptContext>` for structured access
+- Also exposes `buildContext(context): Promise<PromptContext>` for structured access (compressed)
 - The builder is the **only** component that constructs `AIRequest`
 - Cannot render strings — that is the Renderer's sole responsibility
 
@@ -117,7 +124,7 @@ interface PromptRenderer {
   - `renderWithOrder()` — canonical field order (for `serializePromptContext` compatibility)
 - Future implementations: XMLPromptRenderer, JSONPromptRenderer, OpenAIPromptRenderer, ClaudePromptRenderer
 - All prompt text output must go through a PromptRenderer
-- No compression, memory ranking, or token optimization — deferred to future WOs
+- Compression is handled before render by PromptCompression — not by PromptRenderer
 
 ### PromptModule
 
@@ -157,6 +164,8 @@ PromptModule[6]
                       ↓
             Merge into PromptContext
                       ↓
+            PromptCompression.compress(PromptContext)  ← NEW
+                      ↓
             PromptRenderer.render(PromptContext)
                       ↓
             AIRequest { prompt }
@@ -164,12 +173,35 @@ PromptModule[6]
 PromptContext (structured intermediate representation):
   { system?, userInput?, memory?, worldState?, observations?, reflections? }
 
-DefaultPromptBuilder.buildContext(context) → PromptContext (structured access)
+DefaultPromptBuilder.buildContext(context) → PromptContext (compressed)
 serializePromptContext(ctx: PromptContext) → string (delegates to DefaultPromptRenderer)
 
 DefaultPromptRenderer (implements PromptRenderer):
   render(ctx)     → insertion order (module array order for builder)
   renderWithOrder(ctx) → canonical order (for serializePromptContext)
+
+### PromptCompression
+
+Pluggable compression layer between PromptContext assembly and rendering.
+
+```typescript
+interface PromptCompression {
+  compress(context: PromptContext): PromptContext
+}
+```
+
+- Accepts `PromptContext`, returns a new `PromptContext` (never mutates input)
+- No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Injected into `DefaultPromptBuilder` constructor (optional, defaults to `DefaultPromptCompression`)
+- Applies to both `build()` and `buildContext()` outputs
+
+**DefaultPromptCompression** — strips `undefined` and empty string `''` fields from PromptContext.
+Idempotent, non-mutating, deterministic.
+
+**Future implementations** (not implemented):
+- RuleBasedCompression — configurable field filtering
+- TokenCompression — truncate by token count
+- LLMCompression — summarize sections via LLM
 
 ### AIRequest
 
