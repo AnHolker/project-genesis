@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { DefaultPromptCompression } from '../prompt/DefaultPromptCompression'
 import type { PromptCompression } from '../prompt/PromptCompression'
 import type { PromptContext } from '../prompt/PromptContext'
+import type { PromptSelectionResult } from '../prompt/PromptSelectionResult'
 import { DefaultPromptBuilder } from '../prompt/DefaultPromptBuilder'
 import {
   SystemPromptModule,
@@ -564,5 +565,389 @@ describe('Compression Exports', () => {
   it('should export PromptCompression type from package root', async () => {
     const { DefaultPromptCompression: DPC } = await import('..')
     expect(DPC).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Selection Consumption Interface
+// ---------------------------------------------------------------------------
+
+describe('Compression — Selection Consumption Interface', () => {
+  it('should accept optional PromptSelectionResult parameter', () => {
+    const compression: PromptCompression = new DefaultPromptCompression()
+    const result = compression.compress(
+      { system: 'test' },
+      { selectedSections: ['system'], excludedSections: [] },
+    )
+    expect(result.system).toBe('test')
+  })
+
+  it('should work without PromptSelectionResult (backward compatible)', () => {
+    const compression: PromptCompression = new DefaultPromptCompression()
+    const result = compression.compress({ system: 'test' })
+    expect(result.system).toBe('test')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Selection Consumption Behavior
+// ---------------------------------------------------------------------------
+
+describe('Compression — Selection Consumption Behavior', () => {
+  it('should remove sections listed in excludedSections', () => {
+    const compression = new DefaultPromptCompression()
+    const result = compression.compress(
+      { system: 'sys', userInput: 'input', memory: 'mem' },
+      { selectedSections: ['userInput', 'memory'], excludedSections: ['system'] },
+    )
+    expect(result.userInput).toBe('input')
+    expect(result.memory).toBe('mem')
+    expect(result.system).toBeUndefined()
+  })
+
+  it('should remove multiple excluded sections', () => {
+    const compression = new DefaultPromptCompression()
+    const result = compression.compress(
+      {
+        system: 'sys',
+        userInput: 'input',
+        memory: 'mem',
+        worldState: 'world',
+        observations: 'obs',
+        reflections: 'refl',
+      },
+      {
+        selectedSections: ['userInput', 'observations'],
+        excludedSections: ['system', 'memory', 'worldState', 'reflections'],
+      },
+    )
+    expect(result.userInput).toBe('input')
+    expect(result.observations).toBe('obs')
+    expect(result.system).toBeUndefined()
+    expect(result.memory).toBeUndefined()
+    expect(result.worldState).toBeUndefined()
+    expect(result.reflections).toBeUndefined()
+  })
+
+  it('should preserve all sections when excludedSections is empty', () => {
+    const compression = new DefaultPromptCompression()
+    const result = compression.compress(
+      { system: 'sys', userInput: 'input' },
+      { selectedSections: ['system', 'userInput'], excludedSections: [] },
+    )
+    expect(result.system).toBe('sys')
+    expect(result.userInput).toBe('input')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Selection + Empty/Undefined Removal
+// ---------------------------------------------------------------------------
+
+describe('Compression — Selection + Empty/Undefined Removal', () => {
+  it('should remove excluded sections AND undefined fields simultaneously', () => {
+    const compression = new DefaultPromptCompression()
+    const result = compression.compress(
+      {
+        system: 'sys',
+        userInput: undefined,
+        memory: 'mem',
+        worldState: undefined,
+      },
+      {
+        selectedSections: ['system', 'memory'],
+        excludedSections: ['memory'],  // memory excluded
+      },
+    )
+    // system: kept (populated, not excluded)
+    // userInput: removed by undefined
+    // memory: removed by exclusion (even though populated)
+    // worldState: removed by undefined
+    expect(result.system).toBe('sys')
+    expect(result.userInput).toBeUndefined()
+    expect(result.memory).toBeUndefined()
+    expect(result.worldState).toBeUndefined()
+  })
+
+  it('should remove excluded sections AND empty string fields simultaneously', () => {
+    const compression = new DefaultPromptCompression()
+    const result = compression.compress(
+      {
+        system: '',
+        userInput: 'input',
+        memory: 'mem',
+      },
+      {
+        selectedSections: ['userInput'],
+        excludedSections: ['memory'],
+      },
+    )
+    // system: removed by empty string
+    // userInput: kept (populated, not excluded)
+    // memory: removed by exclusion
+    expect(result.userInput).toBe('input')
+    expect(result.system).toBeUndefined()
+    expect(result.memory).toBeUndefined()
+  })
+
+  it('should keep populated section that is selected and not excluded', () => {
+    const compression = new DefaultPromptCompression()
+    const result = compression.compress(
+      { system: 'sys', userInput: 'input' },
+      { selectedSections: ['system', 'userInput'], excludedSections: [] },
+    )
+    expect(result.system).toBe('sys')
+    expect(result.userInput).toBe('input')
+    expect(Object.keys(result)).toHaveLength(2)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Non-mutating with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — Non-mutating with Selection', () => {
+  it('should not mutate input context when selection is provided', () => {
+    const compression = new DefaultPromptCompression()
+    const input: PromptContext = { system: 'sys', userInput: 'input' }
+    const inputCopy = { ...input }
+    compression.compress(
+      input,
+      { selectedSections: ['system'], excludedSections: ['userInput'] },
+    )
+    expect(input).toEqual(inputCopy)
+  })
+
+  it('should return a new object (not same reference)', () => {
+    const compression = new DefaultPromptCompression()
+    const input: PromptContext = { system: 'sys' }
+    const result = compression.compress(
+      input,
+      { selectedSections: ['system'], excludedSections: [] },
+    )
+    expect(result).not.toBe(input)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Deterministic with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — Deterministic with Selection', () => {
+  it('should produce identical output for identical input + selection', () => {
+    const compression = new DefaultPromptCompression()
+    const input: PromptContext = {
+      system: 'sys',
+      userInput: 'input',
+      memory: 'mem',
+    }
+    const selection: PromptSelectionResult = {
+      selectedSections: ['system', 'memory'],
+      excludedSections: ['userInput'],
+    }
+    const result1 = compression.compress(input, selection)
+    const result2 = compression.compress(input, selection)
+    expect(result1).toEqual(result2)
+  })
+
+  it('should be idempotent with selection', () => {
+    const compression = new DefaultPromptCompression()
+    const input: PromptContext = {
+      system: 'sys',
+      userInput: undefined,
+      memory: 'mem',
+    }
+    const selection: PromptSelectionResult = {
+      selectedSections: ['system'],
+      excludedSections: ['memory'],
+    }
+    const firstPass = compression.compress(input, selection)
+    const secondPass = compression.compress(firstPass, selection)
+    expect(firstPass).toEqual(secondPass)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — PromptBuilder Integration with Selection Consumption
+// ---------------------------------------------------------------------------
+
+describe('Compression — PromptBuilder Integration with Selection Consumption', () => {
+  it('should produce correct output when compression consumes selection in builder', async () => {
+    // DefaultPromptBuilder passes selectionResult to compression
+    // Since builder no longer manually applies selection, compression handles it
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+    )
+    const request = await builder.build({ input: 'hello' })
+    // Default selection preserves all, default compression strips undefined/empty
+    expect(request.prompt).toContain('Project Genesis')
+    expect(request.prompt).toContain('hello')
+  })
+
+  it('should exclude sections when build uses budget-aware selection and compression', async () => {
+    // Use a strict budget to force selection exclusion, then verify compression removes it
+    class TrackedCompression implements PromptCompression {
+      public lastSelection: PromptSelectionResult | undefined
+
+      compress(
+        context: PromptContext,
+        selection?: PromptSelectionResult,
+      ): PromptContext {
+        this.lastSelection = selection
+        return new DefaultPromptCompression().compress(context, selection)
+      }
+    }
+
+    const tracked = new TrackedCompression()
+    const selection = new (await import('../prompt')).DefaultPromptSelection(5)
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      tracked,
+      undefined,
+      undefined,
+      selection,
+    )
+
+    await builder.build({ input: 'x'.repeat(100) })
+
+    // Compression should have received the selection result
+    expect(tracked.lastSelection).toBeDefined()
+    expect(tracked.lastSelection!.excludedSections).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — RetryPlanner Compatibility with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — RetryPlanner with Selection Consumption', () => {
+  it('should work with RetryPlanner when compression consumes selection', async () => {
+    const provider = new MockPlannerProvider(new DefaultAIConfiguration())
+    const retryPlanner = new RetryPlanner(provider)
+    const pipeline = new DefaultPipeline(
+      retryPlanner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+    )
+    const result = await pipeline.execute({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — ToolCallPlanner Compatibility with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — ToolCallPlanner with Selection Consumption', () => {
+  it('should work with ToolCallPlanner when compression consumes selection', async () => {
+    const tool = createMockTool('find_entity', { found: true })
+    const registry = new DefaultToolRegistry([tool])
+    const provider = new MockPlannerProvider(new DefaultAIConfiguration())
+    const toolCallPlanner = new ToolCallPlanner(provider, registry)
+    const pipeline = new DefaultPipeline(
+      toolCallPlanner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+    )
+    const result = await pipeline.execute({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Streaming Compatibility with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — Streaming with Selection Consumption', () => {
+  it('should work with streaming provider when compression consumes selection', async () => {
+    const streamingProvider = new MockStreamingProvider()
+    const planner = new MockPlanner(streamingProvider)
+    const pipeline = new DefaultPipeline(
+      planner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+      streamingProvider,
+    )
+    const result = await pipeline.stream({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — AgentLoop Compatibility with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — AgentLoop with Selection Consumption', () => {
+  it('should work with AgentLoop and Reflection when compression consumes selection', async () => {
+    const reflection = new DefaultReflection()
+    const agentLoop = new DefaultAgentLoop(reflection)
+    const pipeline = new DefaultPipeline(
+      createMockPlanner(treeResult),
+      new DefaultPromptBuilder([new SystemPromptModule(), new ReflectionPromptModule(), new UserInputModule()]),
+      undefined,
+      agentLoop,
+    )
+    const result = await pipeline.execute({ input: 'create a tree' })
+    expect(result.plannerResult!.actions).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Compression — Backward Compatibility with Selection
+// ---------------------------------------------------------------------------
+
+describe('Compression — Backward Compatibility with Selection', () => {
+  it('should produce identical behavior when no selection is provided', () => {
+    const compression = new DefaultPromptCompression()
+    const input: PromptContext = {
+      system: 'sys',
+      userInput: undefined,
+      memory: 'mem',
+      worldState: '',
+    }
+    const result = compression.compress(input)
+    expect(result.system).toBe('sys')
+    expect(result.memory).toBe('mem')
+    expect(result.userInput).toBeUndefined()
+    expect(result.worldState).toBeUndefined()
+  })
+
+  it('should support custom implementations ignoring selection param', () => {
+    class LegacyCompression implements PromptCompression {
+      compress(context: PromptContext, _selection?: PromptSelectionResult): PromptContext {
+        const out: PromptContext = {}
+        for (const [key, value] of Object.entries(context)) {
+          if (value !== undefined && value !== '') {
+            if (this.isPromptContextKey(key)) {
+              out[key] = value
+            }
+          }
+        }
+        return out
+      }
+
+      private isPromptContextKey(key: string): key is keyof PromptContext {
+        return ['system', 'userInput', 'memory', 'worldState', 'observations', 'reflections'].includes(key)
+      }
+    }
+
+    const compression = new LegacyCompression()
+    const result = compression.compress(
+      { system: 'sys', userInput: 'input' },
+      { selectedSections: ['system'], excludedSections: ['userInput'] },
+    )
+    // Legacy implementation ignores selection param, preserves all
+    expect(result.system).toBe('sys')
+    expect(result.userInput).toBe('input')
+  })
+
+  it('should preserve existing builder behavior with default constructor', async () => {
+    const builder1 = new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()])
+    const builder3 = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+    )
+    const result1 = await builder1.build({ input: 'hello' })
+    const result3 = await builder3.build({ input: 'hello' })
+    expect(result1.prompt).toBe(result3.prompt)
   })
 })

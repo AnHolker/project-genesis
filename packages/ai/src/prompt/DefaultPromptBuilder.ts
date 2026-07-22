@@ -56,16 +56,9 @@ export class DefaultPromptBuilder implements PromptBuilder {
     // Now consumes MemoryRanking and PromptBudget results for rule-based decisions
     const selectionResult: PromptSelectionResult = this.selection.select(promptContext, rankingResult, budgetResult)
 
-    // Phase 4: Apply selection — create a new PromptContext with only selected sections
-    const selectedContext: PromptContext = {}
-    for (const key of Object.keys(promptContext) as (keyof PromptContext)[]) {
-      if (selectionResult.selectedSections.includes(key)) {
-        selectedContext[key] = promptContext[key]
-      }
-    }
-
-    // Phase 5: PromptCompression — clean up the context (returns new context)
-    const compressed = this.compression.compress(selectedContext)
+    // Phase 4: PromptCompression — clean up context (consumes selection result)
+    // Since WO-S4-003, compression handles selection-based exclusion directly
+    const compressed = this.compression.compress(promptContext, selectionResult)
 
     // Phase 6: PromptRenderer — convert to string
     const rendered = this.renderer.render(compressed)
@@ -114,16 +107,8 @@ export class DefaultPromptBuilder implements PromptBuilder {
     const budgetResult = this.budget.calculate(promptContext)
     const selectionResult = this.selection.select(promptContext, rankingResult, budgetResult)
 
-    // Apply selection before compression
-    const selectedContext: PromptContext = {}
-    for (const key of Object.keys(promptContext) as (keyof PromptContext)[]) {
-      if (selectionResult.selectedSections.includes(key)) {
-        selectedContext[key] = promptContext[key]
-      }
-    }
-
-    // Apply compression before returning structured context
-    return this.compression.compress(selectedContext)
+    // Apply compression (consumes selection result)
+    return this.compression.compress(promptContext, selectionResult)
   }
 
   /**

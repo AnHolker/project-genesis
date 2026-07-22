@@ -1050,6 +1050,44 @@
 - No breaking changes to any Public API
 - Architecture version v0.26
 
+### WO-S4-003 — Prompt Compression Consumption (Rule-Based)
+
+- **PromptCompression interface evolved** — `compress()` now accepts optional `selection?: PromptSelectionResult` parameter
+  - Backward compatible: existing `compress(context)` calls continue working unchanged
+  - Custom implementations with single-param signature remain valid TypeScript
+- **DefaultPromptCompression consumes PromptSelectionResult:**
+  - Removes sections listed in `selection.excludedSections`
+  - Continues removing `undefined` fields
+  - Continues removing empty string `''` fields
+  - Exclusion filter applied before undefined/empty stripping
+  - When selection is not provided: behavior identical to WO-S3-017
+  - Non-mutating, deterministic, pure, idempotent, provider-agnostic
+- **DefaultPromptBuilder simplified:**
+  - Removed manual selection application (Phase 4 loop over context keys)
+  - Now passes `selectionResult` directly to `compression.compress(promptContext, selectionResult)`
+  - Builder is now the sole orchestrator; Compression is the sole transformer
+  - Both `build()` and `buildContext()` methods updated
+- **Pipeline is fully end-to-end connected:**
+  `Modules → Context → Rank → Budget → Select → Compress (consumes Selection) → Render`
+- Created ADR-0040: Prompt Compression Consumption
+- All 857 tests pass (836 existing + 21 new) with zero modifications to existing tests
+- New test groups in `PromptCompressionFoundation.test.ts` (21 tests, 11 groups):
+  - Selection Consumption Interface (2 tests): optional param acceptance, backward compatible
+  - Selection Consumption Behavior (3 tests): single exclusion, multiple exclusion, empty excludedSections
+  - Selection + Empty/Undefined Removal (3 tests): simultaneous exclusion+undefined, exclusion+empty, selected preservation
+  - Non-mutating with Selection (2 tests): input unchanged, new object reference
+  - Deterministic with Selection (2 tests): identical output, idempotent
+  - PromptBuilder Integration with Selection Consumption (2 tests): correct output, tracked selection passthrough
+  - RetryPlanner with Selection Consumption (1 test): works with RetryPlanner
+  - ToolCallPlanner with Selection Consumption (1 test): works with ToolCallPlanner
+  - Streaming with Selection Consumption (1 test): works with streaming
+  - AgentLoop with Selection Consumption (1 test): works with AgentLoop and Reflection
+  - Backward Compatibility with Selection (3 tests): no-selection behavior, legacy implementation, builder constructors
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, PromptModule, PromptRenderer, PromptSelection, MemoryRanking, or PromptBudget
+- No breaking changes to any Public API
+- Architecture version v0.27
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness

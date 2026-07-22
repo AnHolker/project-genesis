@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.26)
+> Project Genesis — AI Architecture Reference (v0.27)
 > Primary reference for all AI development.
 
 ---
@@ -195,7 +195,10 @@ PromptModule[6]
                       ↓
        [PromptSelection.select()]         ← pure decision → stored in metadata
                       ↓
-       [PromptCompression.compress()]     ← returns new, cleaned PromptContext
+       [PromptCompression.compress(       ← consumes selection result (WO-S4-003)
+         PromptContext,                   removes excluded + undefined + empty
+         selectionResult,                 returns new PromptContext
+       )]
                       ↓
        [PromptRenderer.render()]          ← converts PromptContext to string
                       ↓
@@ -214,10 +217,15 @@ DefaultPromptRenderer (implements PromptRenderer):
 ### PromptCompression
 
 Pluggable compression layer between PromptContext assembly and rendering.
+Since WO-S4-003, compression consumes PromptSelectionResult to remove excluded
+sections in addition to its existing empty/undefined field stripping.
 
 ```typescript
 interface PromptCompression {
-  compress(context: PromptContext): PromptContext
+  compress(
+    context: PromptContext,
+    selection?: PromptSelectionResult,  // ← NEW (WO-S4-003)
+  ): PromptContext
 }
 ```
 
@@ -226,8 +234,8 @@ interface PromptCompression {
 - Injected into `DefaultPromptBuilder` constructor (optional, defaults to `DefaultPromptCompression`)
 - Applies to both `build()` and `buildContext()` outputs
 
-**DefaultPromptCompression** — strips `undefined` and empty string `''` fields from PromptContext.
-Idempotent, non-mutating, deterministic.
+**DefaultPromptCompression** — strips `undefined` and empty string `''` fields, and
+removes sections excluded by PromptSelection. Idempotent, non-mutating, deterministic.
 
 **Future implementations** (not implemented):
 - RuleBasedCompression — configurable field filtering
@@ -988,7 +996,7 @@ Order matters — modules appear in the prompt in array order.
 
 ---
 
-## Sprint 4 Final Architecture (v0.26)
+## Sprint 4 Final Architecture (v0.27)
 
 The complete architecture at the end of Sprint 4:
 
