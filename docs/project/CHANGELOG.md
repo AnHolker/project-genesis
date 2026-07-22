@@ -809,3 +809,45 @@
 - No Planner, Provider, Pipeline, AgentLoop, Runtime, Tool, PromptModule, or PromptRenderer modifications
 - No breaking changes to any Public API
 - Architecture version v0.21
+
+### WO-S3-018 — Prompt Budget Foundation
+
+- Created `PromptBudget` interface in `packages/ai/src/prompt/PromptBudget.ts`
+  - Single method: `calculate(context: PromptContext): PromptBudgetResult`
+  - Pluggable measurement abstraction — pure function, no side effects
+  - No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Created `PromptBudgetResult` interface in `packages/ai/src/prompt/PromptBudgetResult.ts`
+  - `totalLength: number` — total character length across all sections
+  - `sectionLengths: Record<string, number>` — per-section character lengths
+  - `estimatedTokens?: number` — optional, left undefined by default
+  - Extensible for future TokenBudget, ProviderBudget implementations
+- Created `DefaultPromptBudget` class in `packages/ai/src/prompt/DefaultPromptBudget.ts`
+  - Implements `PromptBudget`
+  - Character-count based — no tiktoken, no GPT/Claude tokenizer
+  - Iterates known PromptContext fields, records `.length` for each
+  - Non-mutating, deterministic, pure
+  - `estimatedTokens` left undefined (future TokenBudget will populate)
+- No integration with Builder, Compression, or Renderer (deferred to future WOs)
+- Updated barrel exports:
+  - `prompt/index.ts`: exports `PromptBudget` type, `DefaultPromptBudget` class, `PromptBudgetResult` type
+  - `src/index.ts`: exports `PromptBudget` type, `DefaultPromptBudget` class, `PromptBudgetResult` type
+- Created ADR-0035: Prompt Budget Foundation
+- Added 35 new test cases in `PromptBudgetFoundation.test.ts` (covering 11 test groups):
+  - PromptBudget Interface (3 tests): conformance, custom implementation, no dependencies
+  - PromptBudgetResult Interface (3 tests): totalLength, sectionLengths, estimatedTokens optional
+  - DefaultPromptBudget — Empty Context (4 tests): empty, undefined fields, empty strings, all-empty
+  - DefaultPromptBudget — Section Length (3 tests): single section, multiple sections, all populated fields
+  - DefaultPromptBudget — Full Context (2 tests): totalLength accuracy, estimatedTokens undefined
+  - DefaultPromptBudget — Non-mutating (1 test): input unchanged
+  - Custom Budget (2 tests): weighted budget, mock token budget with estimatedTokens
+  - RetryPlanner Compatibility (1 test): budget is standalone
+  - ToolCallPlanner Compatibility (1 test): no interference
+  - Streaming Compatibility (2 tests): streaming path, fallback path
+  - AgentLoop Integration (1 test): works with AgentLoop
+  - Backward Compatibility (2 tests): no breakage, no mutation
+  - Exports (4 tests): type and class from prompt module, PromptBudgetResult, class from package root
+- All 724 tests pass (689 existing + 35 new)
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to any existing component
+- No breaking changes to any Public API
+- Architecture version v0.22

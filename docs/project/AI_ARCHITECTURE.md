@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.21)
+> Project Genesis — AI Architecture Reference (v0.22)
 > Primary reference for all AI development.
 
 ---
@@ -202,6 +202,40 @@ Idempotent, non-mutating, deterministic.
 - RuleBasedCompression — configurable field filtering
 - TokenCompression — truncate by token count
 - LLMCompression — summarize sections via LLM
+
+### PromptBudget
+
+Standalone budget calculation layer for measuring PromptContext sizes.
+
+```typescript
+interface PromptBudget {
+  calculate(context: PromptContext): PromptBudgetResult
+}
+```
+
+- `calculate()` — accepts `PromptContext`, returns `PromptBudgetResult`
+- Pure function: reads context, returns measurement — never modifies input
+- No dependencies on Planner, Provider, Runtime, or AgentLoop
+- Not integrated with PromptBuilder or Compression (deferred to future WOs)
+
+**PromptBudgetResult:**
+```typescript
+interface PromptBudgetResult {
+  totalLength: number             // Total character length across all sections
+  sectionLengths: Record<string, number>  // Per-section character lengths
+  estimatedTokens?: number        // Optional — undefined by default
+}
+```
+
+**DefaultPromptBudget** — character-count implementation.
+- Iterates known PromptContext fields, records `.length` for each
+- Returns `totalLength` and `sectionLengths`
+- `estimatedTokens` is left `undefined`
+
+**Future implementations** (not implemented):
+- TokenBudget — real tokenizer (tiktoken, etc.)
+- ProviderBudget — provider-specific counting
+- ModelSpecificBudget — model-aware budget
 
 ### AIRequest
 
