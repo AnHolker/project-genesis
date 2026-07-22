@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.15)
+> Project Genesis — AI Architecture Reference (v0.16)
 > Primary reference for all AI development.
 
 ---
@@ -12,11 +12,12 @@ User Natural Language
     ↓
 Pipeline.execute(PipelineContext)
     ↓
-PromptBuilder.build(context)         ← composes prompt from PromptModule[4]
-    ├── SystemPromptModule            ← system instructions, action schema
-    ├── UserInputModule               ← context.input
-    ├── MemoryPromptModule            ← conversation history from Memory
-    └── WorldStatePromptModule        ← context.worldState
+PromptBuilder.build(context)         ← composes prompt from PromptModule[5]
+    ├── ObservationPromptModule         ← NEW: reads context.metadata.observations
+    ├── SystemPromptModule              ← system instructions, action schema
+    ├── UserInputModule                 ← context.input
+    ├── MemoryPromptModule              ← conversation history from Memory
+    └── WorldStatePromptModule          ← context.worldState
     ↓
 AIRequest { prompt }
     ↓
@@ -108,14 +109,17 @@ interface PromptModule {
 
 Current modules (in composition order):
 
-1. **SystemPromptModule** — returns the system prompt text: "You are a game action planner for Project Genesis..." — defines available actions, JSON output format, and constraints
-2. **UserInputModule** — returns `context.input` verbatim
-3. **MemoryPromptModule** — reads conversation history from Memory and formats it as context
-4. **WorldStatePromptModule** — wraps `context.worldState` in a "Current World:" header section
+1. **ObservationPromptModule** — reads `context.metadata?.observations` and formats them as a "## Previous Observations" section. This is the canonical formatting — all observation prompt text originates from PromptBuilder.
+2. **SystemPromptModule** — returns the system prompt text: "You are a game action planner for Project Genesis..." — defines available actions, JSON output format, and constraints
+3. **UserInputModule** — returns `context.input` verbatim
+4. **MemoryPromptModule** — reads conversation history from Memory and formats it as context
+5. **WorldStatePromptModule** — wraps `context.worldState` in a "Current World:" header section
 
 ### Prompt Composition Order
 
 ```
+ObservationPromptModule
+       ↓
 SystemPromptModule
        ↓
 UserInputModule
@@ -126,7 +130,7 @@ WorldStatePromptModule
        ↓
 DefaultPromptBuilder.build() joins with '\n'
        ↓
-AIRequest { prompt }
+AIRequest { prompt, metadata?.observations }
 
 ### AIRequest
 
@@ -404,7 +408,8 @@ for iteration = 1 to maxIterations:
   │         │       ├── Create Observation { toolName, toolInput, toolOutput, timestamp, iteration }
   │         │       ├── Push to structuredObservations
   │         │       └── Emit: ObservationRecorded
-  │         │       Append observations to request (prompt + metadata)
+  │         │       Use PromptBuilder.formatObservationsInline() for prompt text
+  │         │       Append formatted text to request prompt
   │         └── No: break (finished = false)
   └── Emit: LoopIterationFinished
     ↓
@@ -422,6 +427,7 @@ Return AgentLoopResult
 3. **Stop conditions** — Two stop conditions: Planner returns non-empty actions, or maxIterations reached.
 4. **Tool call detection** — Tool calls are read from `PlannerResult.metadata.toolCalls`. Each tool is executed via `ToolRegistry` and observations are recorded as structured `Observation[]` in `LoopStep`.
 5. **Structured Observation Context** — Since WO-S3-011, AgentLoop maintains an `Observation[]` array passed to the Planner via `request.metadata.observations`. LoopStep references Observation objects (no data duplication).
+6. **Planner Observation Awareness** — Since WO-S3-012, AgentLoop no longer formats observation prompt text inline. All observation formatting is delegated to PromptBuilder (`formatObservations`/`formatObservationsInline` in `ObservationPromptModule.ts`). AgentLoop only maintains and writes observations.
 6. **Events** — Six events (`AgentLoopStarted`, `LoopIterationStarted`, `ToolExecuted`, `ObservationRecorded`, `LoopIterationFinished`, `AgentLoopFinished`) provide full observability.
 6. **No Runtime dependency** — AgentLoopContext accepts `request`, `planner`, and optional `toolRegistry`. It has no reference to Runtime.
 

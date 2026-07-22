@@ -16,12 +16,12 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 3 In Progress |
-| Architecture Version | v0.15 |
+| Architecture Version | v0.16 |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations) |
-| Prompt Pipeline | Complete — SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations) |
+| Prompt Pipeline | Complete — ObservationPromptModule → SystemPromptModule → UserInputModule → MemoryPromptModule → WorldStatePromptModule → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -86,6 +86,7 @@
 | WO-S3-009 | Pipeline Agent Loop Integration |
 | WO-S3-010 | Multi-Step Agent Loop |
 | WO-S3-011 | Structured Observation Context |
+| WO-S3-012 | Planner Observation Awareness |
 
 ---
 
@@ -211,10 +212,15 @@ interface PromptModule {
 }
 
 // Available modules:
-//   SystemPromptModule    — system instructions (Project Genesis planner, JSON output)
-//   UserInputModule       — returns context.input
-//   MemoryPromptModule    — reads "conversation" from Memory
-//   WorldStatePromptModule — reads context.worldState
+//   SystemPromptModule       — system instructions (Project Genesis planner, JSON output)
+//   UserInputModule          — returns context.input
+//   MemoryPromptModule       — reads "conversation" from Memory
+//   WorldStatePromptModule   — reads context.worldState
+//   ObservationPromptModule  — NEW: reads context.metadata.observations, formats as "## Previous Observations"
+//
+// Observation formatting is owned by PromptBuilder:
+//   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
+//   formatObservationsInline(obs: Observation[]): string   — compact format for AgentLoop iterations
 ```
 
 ### Pipeline Events
@@ -263,6 +269,24 @@ interface StreamingPlannerProvider extends PlannerProvider {
 class MockStreamingProvider implements PlannerProvider, StreamingPlannerProvider { /* char-by-char streaming */ }
 ```
 
+### Observation
+
+```typescript
+interface Observation {
+  toolName: string
+  toolInput: unknown
+  toolOutput: unknown
+  timestamp: number
+  iteration: number
+  success?: boolean
+}
+```
+
+- Structured record of a tool execution within the AgentLoop
+- Maintained across all iterations by DefaultAgentLoop
+- Passed to Planner via AIRequest.metadata.observations
+- Prompt formatting owned by PromptBuilder (ObservationPromptModule + formatObservations)
+
 ### AgentLoop
 
 ```typescript
@@ -299,6 +323,7 @@ class DefaultAgentLoop implements AgentLoop {
   // Multi-step execution with structured Observation context
   // Each iteration: attach observations → plan → check actions → execute tools → observe → repeat
   // Observations passed to planner via request.metadata.observations
+  // Observation prompt formatting delegated to PromptBuilder (formatObservationsInline)
   // LoopStep references Observation objects (no data duplication)
   // Stop conditions: Planner returns actions, or maxIterations reached
   // Events: AgentLoopStarted → LoopIterationStarted → [ToolExecuted] → [ObservationRecorded] → LoopIterationFinished → ... → AgentLoopFinished

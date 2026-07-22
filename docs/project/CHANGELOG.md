@@ -572,3 +572,43 @@
 - Updated PROJECT_STATE.md (v0.15), AI_ARCHITECTURE.md (v0.15)
 - All 473 tests pass (420 existing + 53 new)
 - TypeScript 0 errors, ESLint 0 errors
+
+### WO-S3-012 — Planner Observation Awareness
+
+- Created `ObservationPromptModule` in `packages/ai/src/prompt/modules/ObservationPromptModule.ts`
+  - Reads `PipelineContext.metadata?.observations` and formats into "## Previous Observations" section
+  - Returns empty string when no observations exist
+  - Implements the canonical `formatObservations()` function (rich format with iteration/tool/input/output/success)
+  - Implements `formatObservationsInline()` function (compact inline format for AgentLoop iterations)
+  - Both functions are exported for reuse across the codebase
+- Updated `DefaultPromptBuilder` with `formatObservations(observations)` instance method
+  - Delegates to the same implementation as ObservationPromptModule
+  - Provides a canonical API for any component needing observation formatting
+- Refactored `DefaultAgentLoop` to delegate prompt formatting to PromptBuilder
+  - Removed all inline observation-to-prompt formatting code
+  - Now imports and calls `formatObservationsInline()` from ObservationPromptModule
+  - AgentLoop only maintains `Observation[]` and writes to `request.metadata.observations`
+  - Prompt organization is entirely owned by PromptBuilder
+- Updated barrel exports:
+  - `modules/index.ts`: exports `ObservationPromptModule`, `formatObservations`, `formatObservationsInline`
+  - `prompt/index.ts`: re-exports new module and functions
+  - `src/index.ts`: re-exports new module and functions
+- Provider remains completely unaware of Observation — receives only the final prompt
+- No changes to: Planner interface, PlannerProvider, StreamingPlannerProvider, ToolCallingProvider, Runtime, Renderer, Tool, RuntimeQuery
+- All 473 existing tests pass with zero modifications
+- Added 29 new test cases in `PlannerObservationAwareness.test.ts` (covering 11 test groups):
+  - formatObservations Rich Format (5 tests): empty array, single/multiple observations, without success, input/output sections with pretty-printed JSON
+  - formatObservationsInline Compact Format (5 tests): empty array, single/multiple inline, string output handling, backward-compatible format
+  - ObservationPromptModule (5 tests): no observations, metadata without observations, empty array, single/multiple observations via context
+  - DefaultPromptBuilder formatObservations (2 tests): method delegation, empty observations
+  - AgentLoop Observation Prompt Delegation (1 test): AgentLoop uses PromptBuilder format function
+  - PromptBuilder + ObservationPromptModule Integration (3 tests): observation section inclusion/exclusion, composition
+  - Planner Compatibility (1 test): Planner reads observations via metadata
+  - Backward Compatibility (4 tests): exact inline format match, AgentLoop result structure, event emission, tool events
+  - Retry Compatibility (1 test): retry planner multi-step loop
+  - ToolCalling Compatibility (1 test): observation shape in tool calling step
+  - Event Compatibility (1 test): event type sequence verification
+- All 502 tests pass (473 existing + 29 new)
+- TypeScript 0 errors, ESLint 0 errors
+- Created ADR-0029: Planner Observation Awareness
+- Updated PROJECT_STATE.md (v0.16), AI_ARCHITECTURE.md (v0.16)

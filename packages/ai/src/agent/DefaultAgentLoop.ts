@@ -5,6 +5,7 @@ import type { LoopStep } from './AgentLoopStep'
 import type { Observation } from './Observation'
 import type { PlannerResult } from '../planner'
 import { PipelineEventEmitter } from '../events'
+import { formatObservationsInline } from '../prompt/modules/ObservationPromptModule'
 
 /**
  * DefaultAgentLoop implements the AgentLoop interface.
@@ -93,7 +94,6 @@ export class DefaultAgentLoop implements AgentLoop {
 
       if (toolCalls.length > 0 && context.toolRegistry) {
         const iterationObservations: Observation[] = []
-        const promptObservations: string[] = []
         let lastToolName: string | undefined
         let lastToolInput: unknown
         let lastToolOutput: unknown
@@ -107,7 +107,6 @@ export class DefaultAgentLoop implements AgentLoop {
             lastToolName = toolCall.name
             lastToolInput = toolCall.input
             lastToolOutput = error
-            promptObservations.push(`Error: ${error}`)
 
             // Create structured Observation
             const obs: Observation = {
@@ -163,10 +162,6 @@ export class DefaultAgentLoop implements AgentLoop {
           }
           iterationObservations.push(obs)
 
-          // Build prompt text from observation (AgentLoop decides format)
-          const observationText = `Tool ${toolCall.name} returned: ${JSON.stringify(output)}`
-          promptObservations.push(observationText)
-
           lastToolName = toolCall.name
           lastToolInput = toolCall.input
           lastToolOutput = output
@@ -195,11 +190,11 @@ export class DefaultAgentLoop implements AgentLoop {
         steps.push(step)
 
         // Update request with observations for next iteration
-        // AgentLoop decides how observations are converted to prompt
-        const promptText = promptObservations.join('\n')
+        // PromptBuilder owns the formatting — AgentLoop only calls it
+        const promptText = formatObservationsInline(iterationObservations)
         currentRequest = {
           ...currentRequest,
-          prompt: `${currentRequest.prompt}\n\nObservation:\n${promptText}`,
+          prompt: `${currentRequest.prompt}\n\n${promptText}`,
         }
       } else {
         // No tool calls or no tool registry — record the step and end
