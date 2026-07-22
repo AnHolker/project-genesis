@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.25)
+> Project Genesis — AI Architecture Reference (v0.26)
 > Primary reference for all AI development.
 
 ---
@@ -314,16 +314,20 @@ interface MemoryRankingResult {
 
 ### PromptSelection
 
-Pluggable selection layer that decides which PromptContext sections should participate in the final prompt, without modifying the context.
+Pluggable selection layer that decides which PromptContext sections should participate in the final prompt, without modifying the context. Since WO-S4-002, PromptSelection consumes MemoryRanking and PromptBudget results for rule-based decisions.
 
 ```typescript
 interface PromptSelection {
-  select(context: PromptContext): PromptSelectionResult
+  select(
+    context: PromptContext,
+    ranking?: MemoryRankingResult,
+    budget?: PromptBudgetResult,
+  ): PromptSelectionResult
 }
 ```
 
-- `select()` — accepts `PromptContext`, returns `PromptSelectionResult`
-- Pure function: reads context, returns decision — never modifies input
+- `select()` — accepts `PromptContext` with optional `MemoryRankingResult` and `PromptBudgetResult`
+- Pure function: reads context + ranking + budget, returns decision — never modifies input
 - No dependencies on Planner, Provider, Runtime, or AgentLoop
 - Slotted between Budget and Compression in the Prompt Assembly pipeline
 
@@ -335,14 +339,16 @@ interface PromptSelectionResult {
 }
 ```
 
-**DefaultPromptSelection** — pass-through implementation:
-- Preserves ALL populated sections (defined and non-empty)
-- Returns empty `excludedSections` array
+**DefaultPromptSelection** — rule-based budget-aware implementation:
+- Preserves ALL populated sections when budget is sufficient
+- Removes lowest-priority sections (via MemoryRanking priority) when budget is constrained
+- Constructor accepts optional `maxBudgetChars` (defaults to `Infinity` — unlimited)
+- Falls back to passthrough when ranking or budget is not provided
 - Non-mutating, deterministic, pure, idempotent
 - Provider-agnostic (no OpenAI/DeepSeek binding)
+- **Guard:** never excludes the last remaining section
 
 **Future implementations** (not implemented):
-- BudgetAwareSelection — exclude low-priority sections based on budget
 - EmbeddingSelection — relevance-based section selection
 - LLMSelection — LLM-based importance evaluation
 
@@ -982,7 +988,7 @@ Order matters — modules appear in the prompt in array order.
 
 ---
 
-## Sprint 4 Final Architecture (v0.25)
+## Sprint 4 Final Architecture (v0.26)
 
 The complete architecture at the end of Sprint 4:
 

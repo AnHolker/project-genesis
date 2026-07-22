@@ -16,13 +16,13 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.25 (Sprint 4) |
+| Architecture Version | v0.26 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptSelection → PromptCompression → PromptRenderer → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptSelection (consumes Ranking + Budget) → PromptCompression → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -106,6 +106,7 @@
 |----|-------|
 | WO-S4-000 | Project Development Standards Foundation |
 | WO-S4-001 | Prompt Selection Foundation |
+| WO-S4-002 | Prompt Selection Consumption |
 
 ---
 
@@ -258,7 +259,13 @@ interface PromptRenderer {
 //   (defaults to DefaultPromptCompression — strips undefined/empty fields)
 //   (defaults to DefaultMemoryRanking — fixed priority ranking)
 //   (defaults to DefaultPromptBudget — character count budget)
-//   (defaults to DefaultPromptSelection — preserves all sections)
+//   (defaults to DefaultPromptSelection — rule-based budget-aware selection)
+//
+// DefaultPromptSelection now CONSUMES MemoryRanking and PromptBudget results:
+//   - Budget sufficient (totalLength <= maxBudgetChars) → preserves all sections
+//   - Budget constrained (totalLength > maxBudgetChars) → removes lowest-priority sections
+//   - Constructor accepts optional maxBudgetChars (default: Infinity)
+//   - Falls back to preserving all sections when ranking or budget is not provided
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
@@ -651,6 +658,7 @@ Key remaining items:
 | ADR-0036 | Memory Ranking Foundation | `docs/adr/ADR-0036-memory-ranking-foundation.md` |
 | ADR-0037 | Prompt Assembly Integration | `docs/adr/ADR-0037-prompt-assembly-integration.md` |
 | ADR-0038 | Prompt Selection Foundation | `docs/adr/ADR-0038-prompt-selection-foundation.md` |
+| ADR-0039 | Prompt Selection Consumption | `docs/adr/ADR-0039-prompt-selection-consumption.md` |
 
 ---
 

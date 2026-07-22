@@ -53,7 +53,8 @@ export class DefaultPromptBuilder implements PromptBuilder {
     const budgetResult: PromptBudgetResult = this.budget.calculate(promptContext)
 
     // Phase 3: PromptSelection — decide which sections to preserve (pure decision)
-    const selectionResult: PromptSelectionResult = this.selection.select(promptContext)
+    // Now consumes MemoryRanking and PromptBudget results for rule-based decisions
+    const selectionResult: PromptSelectionResult = this.selection.select(promptContext, rankingResult, budgetResult)
 
     // Phase 4: Apply selection — create a new PromptContext with only selected sections
     const selectedContext: PromptContext = {}
@@ -109,9 +110,9 @@ export class DefaultPromptBuilder implements PromptBuilder {
     }
 
     // Full assembly pipeline (results are pure measurements, only selection and compression modify)
-    this.ranking.rank(promptContext)
-    this.budget.calculate(promptContext)
-    const selectionResult = this.selection.select(promptContext)
+    const rankingResult = this.ranking.rank(promptContext)
+    const budgetResult = this.budget.calculate(promptContext)
+    const selectionResult = this.selection.select(promptContext, rankingResult, budgetResult)
 
     // Apply selection before compression
     const selectedContext: PromptContext = {}

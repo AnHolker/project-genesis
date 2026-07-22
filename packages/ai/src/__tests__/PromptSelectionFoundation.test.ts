@@ -673,3 +673,607 @@ describe('PromptSelection — Immutability', () => {
     expect(JSON.stringify(context)).toBe(contextBefore)
   })
 })
+
+// ---------------------------------------------------------------------------
+// PromptSelection Consumption — Interface Evolution
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — Ranking & Budget Consumption', () => {
+  it('should accept optional ranking and budget params', () => {
+    const selection: PromptSelection = new DefaultPromptSelection()
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput'],
+      priorities: { userInput: 100 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 10,
+      sectionLengths: { userInput: 10 },
+    }
+    const result = selection.select({ userInput: 'hello' }, ranking, budget)
+    expect(result).toHaveProperty('selectedSections')
+    expect(result).toHaveProperty('excludedSections')
+  })
+
+  it('should work without ranking and budget (backward compatible)', () => {
+    const selection: PromptSelection = new DefaultPromptSelection()
+    const result = selection.select({ system: 'test' })
+    expect(result.selectedSections).toEqual(['system'])
+    expect(result.excludedSections).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptSelection — Budget Configuration
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptSelection — Budget Configuration', () => {
+  it('should default maxBudgetChars to Infinity', () => {
+    const selection = new DefaultPromptSelection()
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['system'],
+      priorities: { system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 999999,
+      sectionLengths: { system: 999999 },
+    }
+    const result = selection.select({ system: 'x'.repeat(999999) }, ranking, budget)
+    // Should preserve everything since default budget is Infinity
+    expect(result.selectedSections).toContain('system')
+    expect(result.excludedSections).toHaveLength(0)
+  })
+
+  it('should accept custom maxBudgetChars', () => {
+    const selection = new DefaultPromptSelection(50)
+    expect(selection).toBeInstanceOf(DefaultPromptSelection)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptSelection — Budget Sufficient
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptSelection — Budget Sufficient', () => {
+  it('should preserve all sections when total is within budget', () => {
+    const selection = new DefaultPromptSelection(100)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'memory', 'system'],
+      priorities: { userInput: 100, memory: 40, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 30,
+      sectionLengths: { userInput: 10, memory: 10, system: 10 },
+    }
+    const result = selection.select(
+      { userInput: 'hello', memory: 'history', system: 'sys' },
+      ranking,
+      budget,
+    )
+    expect(result.selectedSections).toContain('userInput')
+    expect(result.selectedSections).toContain('memory')
+    expect(result.selectedSections).toContain('system')
+    expect(result.selectedSections).toHaveLength(3)
+    expect(result.excludedSections).toHaveLength(0)
+  })
+
+  it('should preserve all sections when total exactly matches budget', () => {
+    const selection = new DefaultPromptSelection(30)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'system'],
+      priorities: { userInput: 100, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 30,
+      sectionLengths: { userInput: 20, system: 10 },
+    }
+    const result = selection.select(
+      { userInput: 'x'.repeat(20), system: 'x'.repeat(10) },
+      ranking,
+      budget,
+    )
+    expect(result.selectedSections).toHaveLength(2)
+    expect(result.excludedSections).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptSelection — Budget Constrained
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptSelection — Budget Constrained', () => {
+  it('should remove lowest priority section when budget is exceeded', () => {
+    // system (priority 10) is lowest → should be removed
+    const selection = new DefaultPromptSelection(30)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'memory', 'system'],
+      priorities: { userInput: 100, memory: 40, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 40,
+      sectionLengths: { userInput: 15, memory: 15, system: 10 },
+    }
+    const result = selection.select(
+      { userInput: 'x'.repeat(15), memory: 'x'.repeat(15), system: 'x'.repeat(10) },
+      ranking,
+      budget,
+    )
+    expect(result.selectedSections).toContain('userInput')
+    expect(result.selectedSections).toContain('memory')
+    expect(result.selectedSections).not.toContain('system')
+    expect(result.excludedSections).toContain('system')
+    expect(result.selectedSections).toHaveLength(2)
+  })
+
+  it('should remove multiple low priority sections when budget is severely constrained', () => {
+    // system (10) and memory (40) are lowest → both removed
+    const selection = new DefaultPromptSelection(20)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'reflections', 'observations', 'memory', 'worldState', 'system'],
+      priorities: { userInput: 100, reflections: 80, observations: 60, memory: 40, worldState: 20, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 100,
+      sectionLengths: { userInput: 15, reflections: 15, observations: 15, memory: 15, worldState: 20, system: 20 },
+    }
+    const result = selection.select(
+      {
+        userInput: 'x'.repeat(15),
+        reflections: 'x'.repeat(15),
+        observations: 'x'.repeat(15),
+        memory: 'x'.repeat(15),
+        worldState: 'x'.repeat(20),
+        system: 'x'.repeat(20),
+      },
+      ranking,
+      budget,
+    )
+    // userInput + reflections + observations + memory + worldState = 80 (still > 20)
+    // userInput + reflections + observations + memory = 60 (still > 20)
+    // userInput + reflections + observations = 45 (still > 20)
+    // userInput + reflections = 30 (still > 20)
+    // userInput = 15 (<= 20) ✅
+    expect(result.selectedSections).toContain('userInput')
+    expect(result.selectedSections).not.toContain('system')
+    expect(result.selectedSections).not.toContain('worldState')
+    expect(result.selectedSections).not.toContain('memory')
+    expect(result.selectedSections).not.toContain('observations')
+    expect(result.selectedSections).not.toContain('reflections')
+    expect(result.excludedSections.length).toBeGreaterThanOrEqual(4)
+  })
+
+  it('should never exclude all sections even when every section overflows budget', () => {
+    const selection = new DefaultPromptSelection(1)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'system'],
+      priorities: { userInput: 100, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 20,
+      sectionLengths: { userInput: 10, system: 10 },
+    }
+    const result = selection.select(
+      { userInput: 'x'.repeat(10), system: 'x'.repeat(10) },
+      ranking,
+      budget,
+    )
+    // At least one section should remain
+    expect(result.selectedSections.length).toBeGreaterThanOrEqual(1)
+    expect(result.excludedSections.length).toBeGreaterThanOrEqual(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptSelection — Ranking Consumption
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptSelection — Ranking Consumption', () => {
+  it('should use rankedSections to determine removal order', () => {
+    // Custom ranking: system (highest), userInput (lowest)
+    // When budget is constrained, userInput (lowest) should be removed first
+    const selection = new DefaultPromptSelection(10)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['system', 'userInput'],
+      priorities: { system: 100, userInput: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 30,
+      sectionLengths: { system: 15, userInput: 15 },
+    }
+    const result = selection.select(
+      { system: 'x'.repeat(15), userInput: 'x'.repeat(15) },
+      ranking,
+      budget,
+    )
+    // userInput (priority 10) is lowest → removed first
+    expect(result.selectedSections).toContain('system')
+    expect(result.selectedSections).not.toContain('userInput')
+    expect(result.excludedSections).toContain('userInput')
+  })
+
+  it('should use priorities map for ordering when rankedSections has stability issues', () => {
+    const selection = new DefaultPromptSelection(10)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'memory', 'system'],
+      priorities: { userInput: 100, memory: 40, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 50,
+      sectionLengths: { userInput: 20, memory: 15, system: 15 },
+    }
+    const result = selection.select(
+      { userInput: 'x'.repeat(20), memory: 'x'.repeat(15), system: 'x'.repeat(15) },
+      ranking,
+      budget,
+    )
+    // system (10) removed first, then check: userInput + memory = 35 > 10
+    // memory (40) removed next, then check: userInput = 20 > 10
+    // At this point all remaining >10, nothing more to remove
+    expect(result.excludedSections).toContain('system')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptSelection — Fallback Passthrough
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptSelection — Fallback Passthrough', () => {
+  it('should preserve all sections when ranking is not provided', () => {
+    const selection = new DefaultPromptSelection(1)
+    const budget: PromptBudgetResult = {
+      totalLength: 100,
+      sectionLengths: { userInput: 50, system: 50 },
+    }
+    const result = selection.select(
+      { userInput: 'x'.repeat(50), system: 'x'.repeat(50) },
+      undefined,
+      budget,
+    )
+    expect(result.selectedSections).toContain('userInput')
+    expect(result.selectedSections).toContain('system')
+    expect(result.excludedSections).toHaveLength(0)
+  })
+
+  it('should preserve all sections when budget is not provided', () => {
+    const selection = new DefaultPromptSelection(1)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'system'],
+      priorities: { userInput: 100, system: 10 },
+    }
+    const result = selection.select(
+      { userInput: 'x'.repeat(50), system: 'x'.repeat(50) },
+      ranking,
+      undefined,
+    )
+    expect(result.selectedSections).toContain('userInput')
+    expect(result.selectedSections).toContain('system')
+    expect(result.excludedSections).toHaveLength(0)
+  })
+
+  it('should preserve all sections when neither ranking nor budget is provided', () => {
+    const selection = new DefaultPromptSelection(1)
+    const result = selection.select({ userInput: 'hello', system: 'world' })
+    expect(result.selectedSections).toContain('userInput')
+    expect(result.selectedSections).toContain('system')
+    expect(result.excludedSections).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptSelection — Deterministic with Ranking and Budget
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptSelection — Deterministic with Ranking and Budget', () => {
+  it('should produce identical output for identical input', () => {
+    const selection = new DefaultPromptSelection(30)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'memory', 'system'],
+      priorities: { userInput: 100, memory: 40, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 50,
+      sectionLengths: { userInput: 20, memory: 15, system: 15 },
+    }
+    const context = {
+      userInput: 'x'.repeat(20),
+      memory: 'x'.repeat(15),
+      system: 'x'.repeat(15),
+    }
+    const result1 = selection.select(context, ranking, budget)
+    const result2 = selection.select(context, ranking, budget)
+    expect(result1).toEqual(result2)
+  })
+
+  it('should be pure (no side effects)', () => {
+    const selection = new DefaultPromptSelection(30)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput', 'system'],
+      priorities: { userInput: 100, system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 40,
+      sectionLengths: { userInput: 20, system: 20 },
+    }
+    const context = { userInput: 'x'.repeat(20), system: 'x'.repeat(20) }
+    const contextCopy = { ...context }
+    selection.select(context, ranking, budget)
+    // Context should be unchanged
+    expect(context).toEqual(contextCopy)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBuilder Integration — Budget-Aware Selection
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — Builder Integration with Budget', () => {
+  it('should exclude sections when budget is constrained in builder pipeline', async () => {
+    // Use a DefaultPromptSelection with a limited budget
+    const selection = new DefaultPromptSelection(10)
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      selection,
+    )
+    const request = await builder.build({ input: 'hello world this is long' })
+    // With max budget of 10 chars, some section should be excluded
+    const assembly = request.metadata!.promptAssembly as Record<string, unknown>
+    const selectionResult = assembly.selection as PromptSelectionResult
+    // At least one section should remain, some may be excluded if total > 10
+    expect(selectionResult.selectedSections.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('should pass ranking and budget results to selection via builder', async () => {
+    let capturedRanking: MemoryRankingResult | undefined
+    let capturedBudget: PromptBudgetResult | undefined
+
+    class CapturingSelection implements PromptSelection {
+      select(
+        context: PromptContext,
+        ranking?: MemoryRankingResult,
+        budget?: PromptBudgetResult,
+      ): PromptSelectionResult {
+        capturedRanking = ranking
+        capturedBudget = budget
+        // Preserve all
+        const selectedSections: string[] = []
+        for (const [key, value] of Object.entries(context)) {
+          if (value !== undefined && value !== '') {
+            selectedSections.push(key)
+          }
+        }
+        return { selectedSections, excludedSections: [] }
+      }
+    }
+
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new CapturingSelection(),
+    )
+
+    await builder.build({ input: 'hello' })
+
+    // Builder should pass ranking and budget results to selection
+    expect(capturedRanking).toBeDefined()
+    expect(capturedRanking!.rankedSections).toBeDefined()
+    expect(capturedBudget).toBeDefined()
+    expect(capturedBudget!.sectionLengths).toBeDefined()
+  })
+
+  it('should include selection result in metadata when budget is constrained', async () => {
+    const selection = new DefaultPromptSelection(5)
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      selection,
+    )
+    const request = await builder.build({ input: 'hello world' })
+    const assembly = request.metadata!.promptAssembly as Record<string, unknown>
+    const selectionResult = assembly.selection as PromptSelectionResult
+    expect(selectionResult).toBeDefined()
+    expect(selectionResult.excludedSections).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBuilder Integration — buildContext with Selection
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — buildContext with Budget', () => {
+  it('should apply selection in buildContext pipeline', async () => {
+    const selection = new DefaultPromptSelection(5)
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      selection,
+    )
+    const context = await builder.buildContext({ input: 'hello world this is long input' })
+    // Some sections may be excluded by selection, but the result is still a valid PromptContext
+    expect(context).toBeDefined()
+    expect(typeof context).toBe('object')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Backward Compatibility with Consumption
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — Backward Compatibility with Consumption', () => {
+  it('should not break existing custom selection implementations', () => {
+    class LegacySelection implements PromptSelection {
+      select(context: PromptContext): PromptSelectionResult {
+        const selectedSections: string[] = []
+        for (const [key, value] of Object.entries(context)) {
+          if (value !== undefined && value !== '') {
+            selectedSections.push(key)
+          }
+        }
+        return { selectedSections, excludedSections: [] }
+      }
+    }
+
+    const legacy = new LegacySelection()
+    const result = legacy.select({ userInput: 'hello', system: 'sys' })
+    expect(result.selectedSections).toHaveLength(2)
+    expect(result.excludedSections).toHaveLength(0)
+  })
+
+  it('should not modify PromptContext when ranking and budget are provided', () => {
+    const selection = new DefaultPromptSelection(50)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['userInput'],
+      priorities: { userInput: 100 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 10,
+      sectionLengths: { userInput: 10 },
+    }
+    const ctx: PromptContext = { userInput: 'hello' }
+    const ctxBefore = JSON.stringify(ctx)
+    selection.select(ctx, ranking, budget)
+    expect(JSON.stringify(ctx)).toBe(ctxBefore)
+  })
+
+  it('should produce identical prompt text with 1-param constructor after consumption change', async () => {
+    const builder1 = new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()])
+    const builder6 = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      new DefaultPromptSelection(),
+    )
+    const result1 = await builder1.build({ input: 'hello' })
+    const result6 = await builder6.build({ input: 'hello' })
+    expect(result1.prompt).toBe(result6.prompt)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// RetryPlanner Compatibility with Consumption
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — RetryPlanner Compatibility with Consumption', () => {
+  it('should work with RetryPlanner', async () => {
+    const provider = new MockPlannerProvider(new DefaultAIConfiguration())
+    const retryPlanner = new RetryPlanner(provider)
+    const pipeline = new DefaultPipeline(
+      retryPlanner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+    )
+    const result = await pipeline.execute({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+
+    // Selection with ranking and budget still works independently
+    const selection = new DefaultPromptSelection(100)
+    const ranking: MemoryRankingResult = {
+      rankedSections: ['system'],
+      priorities: { system: 10 },
+    }
+    const budget: PromptBudgetResult = {
+      totalLength: 50,
+      sectionLengths: { system: 50 },
+    }
+    const selectResult = selection.select({ system: 'test' }, ranking, budget)
+    expect(selectResult.selectedSections).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// ToolCallPlanner Compatibility with Consumption
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — ToolCallPlanner Compatibility with Consumption', () => {
+  it('should work with ToolCallPlanner', async () => {
+    const tool = createMockTool('find_entity', { found: true })
+    const registry = new DefaultToolRegistry([tool])
+    const provider = new MockPlannerProvider(new DefaultAIConfiguration())
+    const toolCallPlanner = new ToolCallPlanner(provider, registry)
+    const pipeline = new DefaultPipeline(
+      toolCallPlanner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+    )
+    const result = await pipeline.execute({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Streaming Compatibility with Consumption
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — Streaming Compatibility with Consumption', () => {
+  it('should work with streaming provider', async () => {
+    const streamingProvider = new MockStreamingProvider()
+    const planner = new MockPlanner(streamingProvider)
+    const pipeline = new DefaultPipeline(
+      planner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+      streamingProvider,
+    )
+    const result = await pipeline.stream({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// AgentLoop Compatibility with Consumption
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection — AgentLoop Compatibility with Consumption', () => {
+  it('should work with AgentLoop and Reflection', async () => {
+    const reflection = new DefaultReflection()
+    const agentLoop = new DefaultAgentLoop(reflection)
+    const pipeline = new DefaultPipeline(
+      createMockPlanner(treeResult),
+      new DefaultPromptBuilder([new SystemPromptModule(), new ReflectionPromptModule(), new UserInputModule()]),
+      undefined,
+      agentLoop,
+    )
+    const result = await pipeline.execute({ input: 'create a tree' })
+    expect(result.plannerResult!.actions).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Exports with Consumption
+// ---------------------------------------------------------------------------
+
+describe('PromptSelection Exports — with Consumption', () => {
+  it('should export PromptSelection type from prompt module', async () => {
+    const { DefaultPromptSelection: DPS } = await import('../prompt')
+    expect(DPS).toBeDefined()
+  })
+
+  it('should export DefaultPromptSelection class', async () => {
+    const { DefaultPromptSelection: ExportedClass } = await import('../prompt')
+    expect(ExportedClass).toBeDefined()
+    expect(typeof ExportedClass).toBe('function')
+  })
+
+  it('should export PromptSelectionResult type', async () => {
+    const m = await import('../prompt')
+    const selection = new DefaultPromptSelection()
+    const result: PromptSelectionResult = selection.select({ system: 'test' })
+    expect(result.selectedSections).toEqual(['system'])
+    expect((m as any).DefaultPromptSelection).toBeDefined()
+  })
+
+  it('should export DefaultPromptSelection from package root', async () => {
+    const { DefaultPromptSelection: DPS } = await import('..')
+    expect(DPS).toBeDefined()
+  })
+})

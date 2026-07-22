@@ -1012,6 +1012,44 @@
 - No breaking changes to any Public API
 - Architecture version v0.25
 
+### WO-S4-002 — Prompt Selection Consumption (Rule-Based)
+
+- **PromptSelection interface evolved** — `select()` now accepts optional `ranking?: MemoryRankingResult` and `budget?: PromptBudgetResult` parameters
+  - Backward compatible: existing `select(context)` calls continue working unchanged
+  - Custom implementations with single-param signature remain valid TypeScript
+- **DefaultPromptSelection implements rule-based budget-aware selection:**
+  - Constructor accepts optional `maxBudgetChars` (default: `Infinity` — unlimited)
+  - Budget sufficient (`totalLength <= maxBudgetChars`) → preserves all sections
+  - Budget constrained (`totalLength > maxBudgetChars`) → removes lowest-priority sections first
+  - Uses MemoryRankingResult priorities to determine removal order
+  - Uses PromptBudgetResult sectionLengths to track remaining size
+  - Falls back to passthrough when ranking or budget is not provided
+  - **Guard:** never excludes the last remaining section
+  - Non-mutating, deterministic, pure, idempotent, provider-agnostic
+- **DefaultPromptBuilder updated** — passes `rankingResult` and `budgetResult` to `selection.select()` in both `build()` and `buildContext()` methods
+- Created ADR-0039: Prompt Selection Consumption
+- All 836 tests pass (805 existing + 31 new) with zero modifications to existing tests
+- New test groups in `PromptSelectionFoundation.test.ts` (31 tests, 15 groups):
+  - Ranking & Budget Consumption (2 tests): optional params acceptance, backward compatible
+  - Budget Configuration (2 tests): default Infinity, custom maxBudgetChars
+  - Budget Sufficient (2 tests): within budget, exactly at budget
+  - Budget Constrained (3 tests): remove lowest priority, remove multiple, never exclude all
+  - Ranking Consumption (2 tests): removal order from ranking, priority-based ordering
+  - Fallback Passthrough (3 tests): no ranking, no budget, neither provided
+  - Deterministic with Ranking and Budget (2 tests): identical output, pure function
+  - Builder Integration with Budget (3 tests): exclusion in pipeline, ranking/budget passing, metadata
+  - buildContext with Budget (1 test): selection applied in buildContext
+  - Backward Compatibility with Consumption (3 tests): legacy implementations, immutability, 1-param vs 6-param
+  - RetryPlanner Compatibility with Consumption (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility with Consumption (1 test): works with ToolCallPlanner
+  - Streaming Compatibility with Consumption (1 test): works with streaming
+  - AgentLoop Compatibility with Consumption (1 test): works with AgentLoop and Reflection
+  - Exports with Consumption (4 tests): type and class from prompt module and package root
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, PromptModule, PromptCompression, or PromptRenderer
+- No breaking changes to any Public API
+- Architecture version v0.26
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness
