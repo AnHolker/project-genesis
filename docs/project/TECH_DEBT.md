@@ -11,7 +11,7 @@
 |-------|-------|
 | **Priority** | Medium |
 | **Reason** | Renderer currently uses `switch(entity.type)` to draw entities. Adding new entity types requires modifying the switch. A registry pattern (matching Runtime's ActionHandler approach) would make entity rendering extensible without file modification. |
-| **Suggested Sprint** | Sprint 3 |
+| **Suggested Sprint** | Sprint 4 |
 
 ---
 
@@ -21,7 +21,7 @@
 |-------|-------|
 | **Priority** | Medium |
 | **Reason** | World stores entities as `Entity[]`. Lookups (e.g., MoveEntityHandler's `find`) are O(n). A `Map<string, Entity>` would provide O(1) lookup. Array is sufficient for current scale. |
-| **Suggested Sprint** | Sprint 3 |
+| **Suggested Sprint** | Sprint 4 |
 
 ---
 
@@ -83,7 +83,7 @@
 |-------|-------|
 | **Priority** | Low |
 | **Reason** | Current renderer redraws entire canvas on every change. Dirty rect tracking would improve performance for complex worlds. Premature optimization at current scale. |
-| **Suggested Sprint** | Sprint 3 |
+| **Suggested Sprint** | Sprint 4 |
 
 ---
 
@@ -225,13 +225,13 @@
 
 ---
 
-## Context Compression
+## Context Compression (Real)
 
 | Field | Value |
 |-------|-------|
 | **Priority** | High |
-| **Reason** | Memory stores full conversation history. No summarization, trimming, or token budgeting. Long conversations will exceed LLM context window. Each turn adds to the prompt without bound. |
-| **Suggested Sprint** | Sprint 3 |
+| **Reason** | Memory stores full conversation history. No summarization, trimming, or token budgeting. Long conversations will exceed LLM context window. Each turn adds to the prompt without bound. Foundation exists (PromptCompression interface, DefaultPromptCompression strips empty/undefined). Real token-aware compression not yet implemented. |
+| **Suggested Sprint** | Sprint 4 |
 
 ---
 
@@ -241,17 +241,17 @@
 |-------|-------|
 | **Priority** | Medium |
 | **Reason** | WorldStatePromptModule receives a pre-formatted string, but `formatWorldState()` in gameStore re-serializes on every call. For large worlds, this adds overhead. Caching or incremental updates would improve performance. |
-| **Suggested Sprint** | Sprint 3 |
+| **Suggested Sprint** | Sprint 4 |
 
 ---
 
-## Entity Retrieval
+## Entity Retrieval (Name-based)
 
 | Field | Value |
 |-------|-------|
 | **Priority** | Medium |
-| **Reason** | AI cannot find entities by name, location, or relation without exact ID. "Move the tree next to the house" requires entity lookup, lookup is currently O(n) scan. |
-| **Suggested Sprint** | Sprint 3 |
+| **Reason** | AI cannot find entities by name, location, or relation without exact ID. "Move the tree next to the house" requires entity lookup, lookup is currently O(n) scan. Entity lookup by ID exists via FindEntityTool, but name-based and nearest-neighbor lookup are not yet supported. |
+| **Suggested Sprint** | Sprint 4 |
 
 ---
 
@@ -293,7 +293,7 @@
 |-------|-------|
 | **Priority** | Medium |
 | **Reason** | `MockPlanner` is the default Planner implementation for all providers (OpenAI, DeepSeek, Mock), not just the mock. When OpenAI is configured, `new MockPlanner(openaiProvider)` reads as a contradiction. ADR-0012 states: "MockPlanner is reusable — routes to any provider." The class should be renamed to `DefaultPlanner` to reflect its actual role as the orchestration layer. |
-| **Suggested Sprint** | Sprint 3 |
+| **Suggested Sprint** | Sprint 4 |
 | **Source** | Architecture Audit (META-006) |
 
 ---
@@ -350,5 +350,5 @@
 |-------|-------|
 | **Priority** | Low |
 | **Reason** | `apps/web/src/planner/` is an empty directory left over from WO-S1-007 (MockPlanner was moved to `@genesis/ai`). No code references it. Should be removed. |
-| **Suggested Sprint** | Sprint 3 |
+| **Suggested Sprint** | Sprint 4 |
 | **Source** | Architecture Audit (META-006) |

@@ -942,6 +942,73 @@ Order matters — modules appear in the prompt in array order.
 
 ---
 
+## Sprint 3 Final Architecture (v0.24)
+
+The complete architecture at the end of Sprint 3:
+
+```
+User Input
+    ↓
+Pipeline.execute() / .stream()
+    ↓
+┌──────────────────────────────────────────────────────────────┐
+│                  Prompt Assembly (PromptBuilder)              │
+│  PromptModules → PromptContext → MemoryRanking → PromptBudget │
+│  → PromptCompression → PromptRenderer → AIRequest            │
+└──────────────────────────────────────────────────────────────┘
+    ↓
+AgentLoop.execute()
+    ├── Planner.plan()
+    │     ├── RetryPlanner (decorator, wraps PlannerProvider)
+    │     │     └── RetryPolicy (configurable retry with backoff)
+    │     └── ToolCallPlanner (decorator, wraps PlannerProvider)
+    │           └── Detects ToolCallingProvider → native routing
+    ├── Tool Execution
+    │     └── ToolRegistry → Tool
+    │           ├── FindEntityTool          → RuntimeQuery.findEntity()
+    │           ├── FindEntitiesByTypeTool  → RuntimeQuery.findEntities()
+    │           ├── GetWorldSnapshotTool    → RuntimeQuery.getWorldSnapshot()
+    │           └── MockFindEntityTool      (testing only)
+    └── Reflection.evaluate()
+          └── DefaultReflection (rule-based: actions? → stop)
+    ↓
+PlannerProvider.complete() / completeWithTools()
+    ├── MockPlannerProvider
+    ├── OpenAIPlannerProvider (Streaming + ToolCalling)
+    └── DeepSeekPlannerProvider (Streaming + ToolCalling)
+    ↓
+StructuredOutputValidator.validate()
+    ↓
+PlannerResult { actions, reasoning?, metadata? }
+    ↓
+Runtime.applyActions()
+    ↓
+ActionHandler[]
+    ├── CreateEntityHandler
+    └── MoveEntityHandler
+    ↓
+World
+    ↓
+Renderer (Canvas)
+    ↓
+UI
+```
+
+### Layer Summary
+
+| Layer | Components | Responsibility |
+|-------|-----------|---------------|
+| **Pipeline** | `Pipeline.execute/stream`, `PipelineContext`, `PipelineEventEmitter` | AI entry point, lifecycle events |
+| **Prompt Assembly** | `PromptModule[6]`, `PromptContext`, `MemoryRanking`, `PromptBudget`, `PromptCompression`, `PromptRenderer` | Build prompt from modular sections |
+| **Agent** | `AgentLoop`, `LoopStep`, `Observation`, `Reflection` | Multi-step iteration, tool calling, self-evaluation |
+| **Planning** | `Planner`, `PlannerResult`, `RetryPlanner`, `ToolCallPlanner` | Orchestrate provider calls with retry and tools |
+| **Provider** | `PlannerProvider`, `StreamingPlannerProvider`, `ToolCallingProvider`, `ProviderFactory` | LLM API abstraction |
+| **Validation** | `StructuredOutputValidator` | Response schema validation |
+| **Runtime** | `Runtime`, `ActionHandler`, `RuntimeQuery` | World state management |
+| **Rendering** | Entity renderers, Canvas | Visual output |
+
+---
+
 ## See Also
 
 - [PROVIDER_GUIDE.md](./PROVIDER_GUIDE.md) — Step-by-step provider development guide

@@ -7,7 +7,7 @@
 
 ## Current Sprint
 
-**Sprint 3** — AI Integration & Polish (In Progress)
+**Sprint 4** — AI Polish & Production Readiness (Upcoming)
 
 ---
 
@@ -15,8 +15,9 @@
 
 | Item | Status |
 |------|--------|
-| Status | Sprint 3 In Progress |
-| Architecture Version | v0.24 |
+| Status | Sprint 3 **Completed** — Sprint 4 Upcoming |
+| Architecture Version | v0.24 (Sprint 3 Freeze) |
+| Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
