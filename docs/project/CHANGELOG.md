@@ -1313,6 +1313,44 @@
 - No breaking changes to any Public API
 - Architecture version v0.34
 
+### WO-S4-011 — Sprint 4 Architecture Review
+
+- **Comprehensive architecture review completed** — WO-S4-011
+- **Review document created**: `docs/project/SPRINT4_ARCHITECTURE_REVIEW.md`
+- **17 modules reviewed**: AIConfiguration, BuilderOptions, PromptBuilder, DefaultPromptBuilder, PromptAssembly, MemoryRanking, DefaultMemoryRanking, PromptBudget, DefaultPromptBudget, ProviderBudget, DefaultProviderBudget, PromptSelection, DefaultPromptSelection, PromptCompression, DefaultPromptCompression, PromptRenderer, DefaultPromptRenderer
+- **Issues found**: None — architecture is clean
+  - 3 pre-existing unused imports noted (result files in lint warnings)
+  - 2 PROJECT_STATE.md documentation gaps corrected (AIConfiguration API block, BuilderOptions note)
+- **Final verdict**: Architecture is stable. Sprint 4 should Freeze.
+- **All 1124 tests pass** (1109 AI + 15 Web) with zero modifications
+- **TypeScript 0 errors, ESLint 0 errors** (84 warnings, pre-existing only)
+- No production code changes
+
+### WO-S4-012 — Sprint 4 Freeze
+
+- **Sprint 4 officially frozen** — Architecture baseline locked at v0.35
+- **Review document created**: `docs/project/SPRINT4_REVIEW.md`
+  - Sprint goal, completed WOs, architecture evolution, final pipeline diagram
+  - Design decisions, risks, deferred work, lessons learned, sprint metrics
+- **Backlog document created**: `docs/project/SPRINT5_BACKLOG.md`
+  - 18 backlog items across 8 categories
+  - P1 priorities: TokenCompression, Token-Aware Compression, Planner-Level Reflection
+  - No implementation — backlog only
+- **ADR created**: `docs/adr/ADR-0047-sprint4-freeze.md`
+  - Documents all frozen interfaces
+  - Extension strategy for Sprint 5
+  - Architecture baseline (v0.35, 1124 tests, 0 TS errors)
+- **PROJECT_STATE.md updated**:
+  - Sprint 4 marked Completed (Frozen)
+  - Architecture version v0.35
+  - WO-S4-011 and WO-S4-012 added to completed WOs
+  - Architecture version header updated
+- **CHANGELOG.md updated** — WO-S4-012 entry added
+- **No production code changes** — documentation only
+- **All 1124 tests pass** (1109 AI + 15 Web) — unchanged
+- **TypeScript 0 errors, ESLint 0 errors** — unchanged
+- Architecture version v0.35 (Frozen)
+
 - **New `BuilderOptions` interface** — consolidated options object for `DefaultPromptBuilder`
   - Created in `packages/ai/src/prompt/BuilderOptions.ts`
   - Seven optional fields, each mapping 1:1 to existing constructor parameters:

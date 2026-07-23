@@ -7,7 +7,7 @@
 
 ## Current Sprint
 
-**Sprint 4** — AI Polish & Production Readiness (Upcoming)
+**Sprint 5** — Post-Freeze Capabilities (Upcoming)
 
 ---
 
@@ -15,14 +15,14 @@
 
 | Item | Status |
 |------|--------|
-| Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.34 (Sprint 4) |
-| Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
+| Status | Sprint 4 **Completed (Frozen)** |
+| Architecture Version | v0.35 (Sprint 4 Frozen) |
+| Architecture Status | **Frozen** — Sprint 4 baseline locked. New capabilities slot into existing interfaces. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection (consumes Ranking + Budget + ProviderBudget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption + AI Configuration Foundation + AI Configuration Consumption + BuilderOptions Foundation + BuilderOptions Consumption + Architecture Review — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | **Frozen** — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection (consumes Ranking + Budget + ProviderBudget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -115,6 +115,8 @@
 | WO-S4-008 | AI Configuration Consumption |
 | WO-S4-009 | BuilderOptions Foundation |
 | WO-S4-010 | BuilderOptions Consumption |
+| WO-S4-011 | Sprint 4 Architecture Review |
+| WO-S4-012 | Sprint 4 Freeze |
 
 ---
 
@@ -215,9 +217,14 @@ interface AIConfiguration {
   provider: string
   model: string
   temperature: number
+  /** @deprecated Use maxOutputTokens instead. Kept for backward compatibility. */
   maxTokens: number
+  maxOutputTokens?: number
+  streaming?: boolean
+  toolCalling?: boolean
   apiKey?: string
   baseURL?: string
+  allowBrowser?: boolean
 }
 
 class DefaultAIConfiguration implements AIConfiguration {
@@ -225,6 +232,12 @@ class DefaultAIConfiguration implements AIConfiguration {
   readonly model = 'mock'
   readonly temperature = 0
   readonly maxTokens = 0
+  readonly streaming = false
+  readonly toolCalling = false
+  readonly maxOutputTokens = undefined
+  readonly apiKey = undefined
+  readonly baseURL = undefined
+  readonly allowBrowser = undefined
 }
 ```
 
@@ -272,8 +285,9 @@ interface PromptRenderer {
 //   (defaults to no AIConfiguration — falls back to 'openai' provider)
 //
 // BuilderOptions consolidates all optional params into a single options object
-//   (available as public type — NOT yet consumed by the constructor)
-//   See BuilderOptions type in prompt/BuilderOptions.ts
+//   (consumed by DefaultPromptBuilder constructor since WO-S4-010)
+//   Recommended form: new DefaultPromptBuilder(modules, { renderer, compression, ... })
+//   Legacy positional form preserved for backward compatibility
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
@@ -451,7 +465,7 @@ class DefaultMemory implements Memory {
 
 ---
 
-## Current Architecture (v0.8)
+## Current Architecture (v0.35)
 
 ```
 User Natural Language
