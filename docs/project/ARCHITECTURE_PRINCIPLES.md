@@ -125,7 +125,9 @@ MemoryRanking        ← pure measurement, does not modify context
     ↓
 PromptBudget         ← pure measurement, does not modify context
     ↓
-PromptSelection      ← future: conditional section inclusion
+ProviderBudget       ← pure lookup, does not modify context (NEW — WO-S4-006)
+    ↓
+PromptSelection      ← consumes ranking, budget, and providerBudget
     ↓
 PromptCompression    ← may modify context (returns new object)
     ↓

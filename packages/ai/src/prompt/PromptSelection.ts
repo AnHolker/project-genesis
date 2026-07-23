@@ -2,6 +2,7 @@ import type { PromptContext } from './PromptContext'
 import type { PromptSelectionResult } from './PromptSelectionResult'
 import type { MemoryRankingResult } from './MemoryRankingResult'
 import type { PromptBudgetResult } from './PromptBudgetResult'
+import type { ProviderBudgetResult } from './ProviderBudgetResult'
 
 /**
  * PromptSelection is a pluggable selection interface for PromptContext sections.
@@ -22,6 +23,9 @@ import type { PromptBudgetResult } from './PromptBudgetResult'
  * Starting in WO-S4-002, selection CONSUMES MemoryRanking and PromptBudget
  * results to make rule-based decisions. When ranking and budget are provided,
  * implementations may use them to determine which sections to exclude.
+ *
+ * Starting in WO-S4-006, selection also CONSUMES ProviderBudgetResult to enable
+ * dynamic budget thresholds based on provider/model capacity.
  *
  * Design principles:
  * - Pure function: input → output, no side effects
@@ -52,14 +56,21 @@ export interface PromptSelection {
    * ranking priorities and budget sizes to decide section inclusion.
    * When not provided, implementations MUST preserve all sections.
    *
+   * When providerBudget is provided, implementations SHOULD use the
+   * provider's token capacity to dynamically calculate the budget
+   * threshold. When not provided, implementations fall back to their
+   * configured static threshold (if any).
+   *
    * @param context — The PromptContext to evaluate
    * @param ranking — Optional MemoryRankingResult with section priorities
    * @param budget — Optional PromptBudgetResult with section sizes
+   * @param providerBudget — Optional ProviderBudgetResult with provider/model token capacity
    * @returns A PromptSelectionResult with selected and excluded section names
    */
   select(
     context: PromptContext,
     ranking?: MemoryRankingResult,
     budget?: PromptBudgetResult,
+    providerBudget?: ProviderBudgetResult,
   ): PromptSelectionResult
 }

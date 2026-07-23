@@ -11,6 +11,8 @@ import type { PromptSelection } from './PromptSelection'
 import type { PromptSelectionResult } from './PromptSelectionResult'
 import type { PromptBudgetResult } from './PromptBudgetResult'
 import type { MemoryRankingResult } from './MemoryRankingResult'
+import type { ProviderBudget } from './ProviderBudget'
+import type { ProviderBudgetResult } from './ProviderBudgetResult'
 import type { Observation } from '../agent'
 import type { ReflectionResult } from '../reflection'
 import { DefaultPromptRenderer } from './DefaultPromptRenderer'
@@ -29,6 +31,9 @@ export class DefaultPromptBuilder implements PromptBuilder {
     private readonly ranking: MemoryRanking = new DefaultMemoryRanking(),
     private readonly budget: PromptBudget = new DefaultPromptBudget(),
     private readonly selection: PromptSelection = new DefaultPromptSelection(),
+    private readonly providerBudget?: ProviderBudget,
+    private readonly providerName: string = 'openai',
+    private readonly modelName?: string,
   ) {}
 
   async build(context: PipelineContext): Promise<AIRequest> {
@@ -52,9 +57,21 @@ export class DefaultPromptBuilder implements PromptBuilder {
     // Phase 2: PromptBudget — calculate section sizes (pure measurement)
     const budgetResult: PromptBudgetResult = this.budget.calculate(promptContext)
 
+    // Phase 2.5: ProviderBudget — look up provider/model capacity (pure lookup)
+    // Only performed when a ProviderBudget instance is injected
+    let providerBudgetResult: ProviderBudgetResult | undefined
+    if (this.providerBudget !== undefined) {
+      providerBudgetResult = this.providerBudget.getBudget(this.providerName, this.modelName)
+    }
+
     // Phase 3: PromptSelection — decide which sections to preserve (pure decision)
-    // Now consumes MemoryRanking and PromptBudget results for rule-based decisions
-    const selectionResult: PromptSelectionResult = this.selection.select(promptContext, rankingResult, budgetResult)
+    // Now consumes MemoryRanking, PromptBudget, AND ProviderBudget results
+    const selectionResult: PromptSelectionResult = this.selection.select(
+      promptContext,
+      rankingResult,
+      budgetResult,
+      providerBudgetResult,
+    )
 
     // Phase 4: PromptCompression — clean up context (consumes selection result)
     // Since WO-S4-003, compression handles selection-based exclusion directly
@@ -70,6 +87,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
         ranking: rankingResult,
         budget: budgetResult,
         selection: selectionResult,
+        ...(providerBudgetResult !== undefined ? { providerBudget: providerBudgetResult } : {}),
       },
     }
 
@@ -105,7 +123,14 @@ export class DefaultPromptBuilder implements PromptBuilder {
     // Full assembly pipeline (results are pure measurements, only selection and compression modify)
     const rankingResult = this.ranking.rank(promptContext)
     const budgetResult = this.budget.calculate(promptContext)
-    const selectionResult = this.selection.select(promptContext, rankingResult, budgetResult)
+
+    // ProviderBudget: only when injected
+    let providerBudgetResult: ProviderBudgetResult | undefined
+    if (this.providerBudget !== undefined) {
+      providerBudgetResult = this.providerBudget.getBudget(this.providerName, this.modelName)
+    }
+
+    const selectionResult = this.selection.select(promptContext, rankingResult, budgetResult, providerBudgetResult)
 
     // Apply compression (consumes selection result)
     return this.compression.compress(promptContext, selectionResult)

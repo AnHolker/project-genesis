@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.29)
+> Project Genesis — AI Architecture Reference (v0.30)
 > Primary reference for all AI development.
 
 ---
@@ -26,13 +26,15 @@ MemoryRanking.rank()                 ← determines section priority (pure measu
     ↓
 PromptBudget.calculate()              ← measures section sizes (pure measurement)
     ↓
-PromptSelection.select()              ← decides which sections to preserve (pure decision)
+ProviderBudget.getBudget()            ← looks up provider/model capacity (pure lookup)
+    ↓
+PromptSelection.select()              ← decides which sections to preserve (consumes ranking + budget + providerBudget)
     ↓
 PromptCompression.compress()          ← cleans/strips PromptContext before render
     ↓
 PromptRenderer.render()              ← converts PromptContext to string
     ↓
-AIRequest { prompt, metadata }       ← metadata includes ranking, budget & selection results
+AIRequest { prompt, metadata }       ← metadata includes ranking, budget, providerBudget & selection results
     ↓
 AgentLoop.execute(request, planner)  ← wraps Planner.plan() with iteration control
     ↓
@@ -128,10 +130,13 @@ constructor(
   ranking?: MemoryRanking,            // default: DefaultMemoryRanking
   budget?: PromptBudget,              // default: DefaultPromptBudget
   selection?: PromptSelection,        // default: DefaultPromptSelection
+  providerBudget?: ProviderBudget,    // default: undefined (NEW — WO-S4-006)
+  providerName?: string,              // default: 'openai' (NEW — WO-S4-006)
+  modelName?: string,                 // default: undefined (NEW — WO-S4-006)
 )
 ```
 
-All optional parameters are fully backward compatible — existing 1-5 param constructors continue working unchanged.
+All optional parameters are fully backward compatible — existing 1-6 param constructors continue working unchanged.
 
 ### PromptRenderer
 
@@ -193,7 +198,14 @@ PromptModule[6]
                       ↓
        [PromptBudget.calculate()]         ← pure measurement → stored in metadata
                       ↓
-       [PromptSelection.select()]         ← pure decision → stored in metadata
+       [ProviderBudget.getBudget()]        ← pure lookup → stored in metadata (NEW WO-S4-006)
+                      ↓
+       [PromptSelection.select(            ← consumes ranking + budget + providerBudget
+         context,
+         rankingResult,
+         budgetResult,
+         providerBudgetResult,             ← NEW: provider token capacity
+       )]
                       ↓
        [PromptCompression.compress(       ← consumes selection result (WO-S4-003)
          PromptContext,                   removes excluded + undefined + empty
@@ -315,7 +327,7 @@ interface ProviderBudgetResult {
 Model-specific overrides (e.g., gpt-4o → 128,000 input, 16,384 output) are resolved when a model name is provided.
 
 **Future implementations** (not implemented):
-- ProviderBudget → PromptSelection integration
+- ProviderBudget → PromptSelection integration (implemented in WO-S4-006)
 - Dynamic capability discovery from provider APIs
 - Custom provider budgets via configuration
 
@@ -373,14 +385,15 @@ interface PromptSelection {
     context: PromptContext,
     ranking?: MemoryRankingResult,
     budget?: PromptBudgetResult,
+    providerBudget?: ProviderBudgetResult,  // ← NEW (WO-S4-006)
   ): PromptSelectionResult
 }
 ```
 
-- `select()` — accepts `PromptContext` with optional `MemoryRankingResult` and `PromptBudgetResult`
-- Pure function: reads context + ranking + budget, returns decision — never modifies input
+- `select()` — accepts `PromptContext` with optional `MemoryRankingResult`, `PromptBudgetResult`, and `ProviderBudgetResult`
+- Pure function: reads context + ranking + budget + providerBudget, returns decision — never modifies input
 - No dependencies on Planner, Provider, Runtime, or AgentLoop
-- Slotted between Budget and Compression in the Prompt Assembly pipeline
+- Slotted between ProviderBudget and Compression in the Prompt Assembly pipeline
 
 **PromptSelectionResult:**
 ```typescript
@@ -394,6 +407,8 @@ interface PromptSelectionResult {
 - Preserves ALL populated sections when budget is sufficient
 - Removes lowest-priority sections (via MemoryRanking priority) when budget is constrained
 - Constructor accepts optional `maxBudgetChars` (defaults to `Infinity` — unlimited)
+- Constructor accepts optional `charsPerToken` (defaults to 4 — used for ProviderBudget threshold conversion)
+- When `ProviderBudgetResult` is passed to `select()`, dynamically calculates threshold as `maxInputTokens * charsPerToken`, overriding `maxBudgetChars`
 - Falls back to passthrough when ranking or budget is not provided
 - Non-mutating, deterministic, pure, idempotent
 - Provider-agnostic (no OpenAI/DeepSeek binding)

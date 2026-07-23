@@ -16,13 +16,13 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.29 (Sprint 4) |
+| Architecture Version | v0.30 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptSelection (consumes Ranking + Budget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection (consumes Ranking + Budget + ProviderBudget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -110,6 +110,7 @@
 | WO-S4-003 | Prompt Compression Consumption |
 | WO-S4-004 | Prompt Budget Token Estimation |
 | WO-S4-005 | Provider Budget Foundation |
+| WO-S4-006 | Provider Budget Consumption |
 
 ---
 
@@ -540,6 +541,7 @@ PromptBuilder composition flow:
     ├── Merge into unified PromptContext
     ├── MemoryRanking → pure measurement (ranks sections)
     ├── PromptBudget → pure measurement (measures sizes)
+    ├── ProviderBudget → pure lookup (provider/model token capacity)
     ├── PromptSelection → decides which sections to preserve
     ├── PromptCompression → strips undefined/empty fields
     └── PromptRenderer → serializes to string → AIRequest
@@ -664,7 +666,8 @@ Key remaining items:
 | ADR-0039 | Prompt Selection Consumption | `docs/adr/ADR-0039-prompt-selection-consumption.md` |
 | ADR-0040 | Prompt Compression Consumption | `docs/adr/ADR-0040-prompt-compression-consumption.md` |
 | ADR-0041 | Prompt Budget Token Estimation |
-| ADR-0042 | Provider Budget Foundation | `docs/adr/ADR-0041-prompt-budget-token-estimation.md` |
+| ADR-0042 | Provider Budget Foundation | `docs/adr/ADR-0042-provider-budget-foundation.md` |
+| ADR-0043 | Provider Budget Consumption | `docs/adr/ADR-0043-provider-budget-consumption.md` |
 
 ---
 

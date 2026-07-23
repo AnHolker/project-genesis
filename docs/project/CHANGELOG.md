@@ -1156,6 +1156,55 @@
 - No breaking changes to any Public API
 - Architecture version v0.29
 
+### WO-S4-006 — Provider Budget Consumption
+
+- **PromptSelection interface evolved** — `select()` gains optional 4th parameter `providerBudget?: ProviderBudgetResult`
+  - When provided, implementations use provider token capacity for dynamic budget threshold
+  - When omitted, existing behavior unchanged (falls back to static maxBudgetChars)
+  - 4-param signature is backward compatible with existing 3-param callers
+- **DefaultPromptSelection enhanced** — now supports dynamic ProviderBudget threshold
+  - New `charsPerToken` constructor parameter (default: 4) for converting token limits to char thresholds
+  - When `ProviderBudgetResult` is passed to `select()`, calculates `effectiveMaxBudgetChars = maxInputTokens * charsPerToken`
+  - ProviderBudget threshold overrides static `maxBudgetChars` for that invocation
+  - Existing `DefaultPromptSelection(number)` constructor unchanged (backward compatible)
+  - Existing `select(context)` and `select(context, ranking, budget)` unchanged (backward compatible)
+- **DefaultPromptBuilder extended** — new optional constructor params:
+  - `providerBudget?: ProviderBudget` — inject ProviderBudget instance (default: undefined)
+  - `providerName?: string` — provider name for lookup (default: 'openai')
+  - `modelName?: string` — optional model name for fine-grained lookup
+  - When ProviderBudget is injected, the builder calls `getBudget()` and passes result to `selection.select()`
+  - `providerBudget` result stored in `AIRequest.metadata.promptAssembly.providerBudget`
+  - All existing 1-6 param constructor signatures continue working unchanged
+- **Pipeline execution order updated**: Ranking → Budget → ProviderBudget → Selection → Compression → Renderer
+- **Different provider budgets produce different selection behavior**:
+  - OpenAI (8K tokens → 32K chars): may trigger exclusion for large prompts
+  - DeepSeek (65K tokens → 262K chars): generous threshold, rarely triggers exclusion
+  - Anthropic (100K tokens → 400K chars): very generous threshold
+  - Mock (4K tokens → 16K chars): conservative threshold
+  - Unknown: falls back to conservative (4K tokens → 16K chars)
+- **Model-specific limits**: gpt-4o (128K tokens), gpt-3.5-turbo (16K tokens), etc.
+- Created ADR-0043: Provider Budget Consumption
+- All 985 tests pass (926 existing + 44 new + 15 web) with zero modifications to existing tests
+- New test file `ProviderBudgetConsumption.test.ts` (44 tests, 14 groups):
+  - ProviderBudget Consumption (8 tests): dynamic threshold, preservation, override, exclusion, fallback, undefined fallback, correct exclusion, no maxOutputTokens
+  - Different Provider Budgets (6 tests): OpenAI, DeepSeek, Anthropic, Mock thresholds, different thresholds per provider, model-specific limits
+  - Unknown Provider Fallback (2 tests): fallback budget, no crash
+  - Deterministic with ProviderBudget (3 tests): identical output, idempotent, charsPerToken ratio
+  - Immutability with ProviderBudget (2 tests): context unchanged, inputs unchanged
+  - Custom ProviderBudget with Selection (2 tests): custom implementation, zero maxInputTokens guard
+  - Builder Integration — ProviderBudget Injection (6 tests): 7-param constructor, metadata inclusion, metadata exclusion without ProviderBudget, custom provider name, custom model name, different providers
+  - Builder Integration — Execution Order (1 test): rank → budget → providerBudget → select → compress → render
+  - Backward Compatibility (8 tests): 1-param constructor, 6-param constructor, select(context) signature, select(context, ranking, budget) signature, constructor(number), constructor(Infinity), custom implementations ignoring 4th param, metadata structure unchanged
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (1 test): works with streaming
+  - AgentLoop Compatibility (1 test): works with AgentLoop and Reflection
+  - ProviderBudget Metadata (2 tests): maxInputTokens in metadata, model-specific metadata
+- TypeScript 0 errors, ESLint 0 errors (only pre-existing warnings)
+- No modifications to PromptBudget, Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, PromptModule, PromptRenderer, PromptCompression, MemoryRanking, or any existing component
+- No breaking changes to any Public API
+- Architecture version v0.30
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness
