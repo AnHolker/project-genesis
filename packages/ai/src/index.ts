@@ -51,3 +51,8 @@ export type { AgentLoop, AgentLoopContext, AgentLoopResult, LoopStep, Observatio
 export { DefaultAgentLoop } from './agent'
 export type { Reflection, ReflectionContext, ReflectionResult } from './reflection'
 export { DefaultReflection } from './reflection'
+export type { IntentType } from './intent'
+export type { Intent } from './intent'
+export type { IntentResult } from './intent'
+export type { IntentAnalyzer } from './intent'
+export { DefaultIntentAnalyzer } from './intent'

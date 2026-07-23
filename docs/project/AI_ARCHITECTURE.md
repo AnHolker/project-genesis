@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.34)
+> Project Genesis — AI Architecture Reference (v0.36)
 > Primary reference for all AI development.
 
 ### BuilderOptions
@@ -19,7 +19,7 @@ interface BuilderOptions {
 }
 ```
 
-**Current status:** Foundation only — the interface exists and is publicly exported, but is NOT yet consumed by `DefaultPromptBuilder`. The constructor still uses positional parameters.
+**Current status:** Fully consumed by `DefaultPromptBuilder` since WO-S4-010. Both legacy positional and BuilderOptions forms coexist.
 
 **Design principles:**
 - All fields are optional
@@ -27,7 +27,64 @@ interface BuilderOptions {
 - No new fields beyond what the constructor already accepts
 - Pure data interface — no methods, no behavior
 
-**Future:** BuilderOptions will replace the positional parameter constructor in a future Work Order.
+---
+
+## Intent Layer
+
+The Intent Layer is the semantic bridge between natural language and executable runtime actions. Introduced in WO-S5-001 (Sprint 5).
+
+### Architecture Status
+
+**Foundation only** — The intent abstraction exists but is NOT yet integrated into the Pipeline, PromptBuilder, Planner, or AgentLoop. Integration is deferred to future Work Orders.
+
+### Component Responsibilities
+
+| Component | Type | Purpose |
+|-----------|------|---------|
+| `IntentType` | String union | User intention categories: `Create`, `Delete`, `Move`, `Modify`, `Query` |
+| `Intent` | Interface | Minimal immutable data object with `readonly type: IntentType` |
+| `IntentResult` | Interface | Container for multiple intents: `{ intents: Intent[] }` |
+| `IntentAnalyzer` | Interface | Contract for extracting intents from natural language: `analyze(input: string): IntentResult` |
+| `DefaultIntentAnalyzer` | Class | Placeholder implementation returning empty `{ intents: [] }` |
+
+### Intent Types
+
+```typescript
+type IntentType = 'Create' | 'Delete' | 'Move' | 'Modify' | 'Query'
+```
+
+Future types are added via string union extension — no breaking changes.
+
+### DefaultIntentAnalyzer
+
+```typescript
+class DefaultIntentAnalyzer implements IntentAnalyzer {
+  analyze(_input: string): IntentResult {
+    return { intents: [] }
+  }
+}
+```
+
+- Foundation only — no parsing, no AI, no heuristics
+- Pure, deterministic, stateless, no side effects
+- No dependencies on Planner, Runtime, Provider, Memory, ToolCalling, or AgentLoop
+
+### Dependency Rules
+
+- `IntentAnalyzer` must NOT depend on Planner, Runtime, Provider, Memory, ToolCalling, AgentLoop, PromptBuilder, or Pipeline
+- `Intent` is pure data — no behavior, no methods
+- `IntentResult` is pure data — no behavior, no methods
+- `DefaultIntentAnalyzer` is a placeholder — zero logic beyond the contract
+
+### Future (Not Yet Implemented)
+
+| Capability | Interface | Mechanism |
+|-----------|-----------|-----------|
+| RuleBasedIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
+| HeuristicIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
+| LLMIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
+| Intent → PromptAssembly | `PromptContext` | Add intent to PromptContext |
+| Intent → Pipeline | `PipelineContext` | Add intent to PipelineContext |
 
 ---
 

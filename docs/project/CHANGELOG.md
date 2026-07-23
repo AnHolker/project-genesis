@@ -1407,3 +1407,46 @@
 - Updated `PROJECT_STATE.md` — Sprint 4 section, new rows for Development Standards and Architecture Principles
 - No runtime code changes — documentation only
 - All 779 existing tests pass unchanged
+
+---
+
+## Sprint 5 — Post-Freeze Capabilities
+
+### WO-S5-001 — Intent Analysis Foundation
+
+- **Created `packages/ai/src/intent/` module** — new intent analysis abstraction layer
+  - `IntentType.ts` — extensible string union: `'Create' | 'Delete' | 'Move' | 'Modify' | 'Query'`
+  - `Intent.ts` — minimal immutable interface: `{ readonly type: IntentType }`
+  - `IntentResult.ts` — container interface: `{ readonly intents: Intent[] }`
+  - `IntentAnalyzer.ts` — interface: `analyze(input: string): IntentResult`
+  - `DefaultIntentAnalyzer.ts` — placeholder implementation returning `{ intents: [] }`
+  - `index.ts` — barrel exports for all intent types
+- **Public exports** — all intent types exported from:
+  - `packages/ai/src/intent/index.ts`
+  - `packages/ai/src/index.ts` (package root)
+- **No dependencies on Planner, Runtime, Provider, Memory, ToolCalling, AgentLoop, PromptBuilder, or Pipeline**
+- **No integration** — IntentAnalyzer is NOT wired into Pipeline, PromptBuilder, or any other component
+- **Architecture compliance verified:**
+  - Pure: no side effects, no mutation of inputs
+  - Deterministic: same input always produces same output
+  - Stateless: no internal state between calls
+  - Immutable: all Intent/IntentResult fields are readonly
+  - No dependencies on any existing component
+- Created ADR-0048: Intent Analysis Foundation
+- All existing tests pass with zero modifications
+- New test file `IntentAnalysisFoundation.test.ts` (71 tests, 11 groups):
+  - IntentType (6 tests): each type, string comparison
+  - Intent (7 tests): each type creation, frozen, object literal, array
+  - IntentResult (6 tests): empty, single, multiple, all types, frozen, empty valid
+  - DefaultIntentAnalyzer (11 tests): interface impl, empty/non-empty/complex input, deterministic, idempotent, stateless, no side effects, type structure, IntentType discriminator, zero dependencies
+  - Exports (10 tests): from intent/index and package root (types + class)
+  - Backward Compatibility (10 tests): all existing interfaces unchanged
+  - RetryPlanner Compatibility (2 tests): works with RetryPlanner
+  - ToolCallPlanner Compatibility (2 tests): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): works with StreamingProvider
+  - AgentLoop Compatibility (3 tests): works with DefaultAgentLoop, Reflection
+  - Architecture Compliance (12 tests): no dependencies on Planner/Runtime/Provider/Memory/ToolCalling/AgentLoop/PromptBuilder/Pipeline, no side effects, pure, stateless, non-mutating
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, BuilderOptions, or any existing component
+- No breaking changes to any Public API
+- Architecture version v0.36
