@@ -79,6 +79,7 @@ Each module owns exactly one responsibility. No responsibility duplication.
 | `PromptRenderer` | PromptContext → string conversion | Compress, rank, budget |
 | `PromptCompression` | Clean/strip PromptContext | Render, rank, budget |
 | `PromptBudget` | Measure section sizes | Modify context |
+| `ProviderBudget` | Look up provider/model capacity | Measure prompts, call SDKs |
 | `MemoryRanking` | Determine section priority | Modify context |
 | `Planner` | Route requests to provider | Call LLM directly |
 | `PlannerProvider` | Communicate with LLM | Plan, validate |
@@ -188,7 +189,7 @@ These extension points are documented but not yet implemented. Future Work Order
 | **EmbeddingRanking** | Implements MemoryRanking | Semantic similarity via embeddings |
 | **LLMRanking** | Implements MemoryRanking | LLM-based importance evaluation |
 | **TokenBudget** | Implements PromptBudget | Real token counting via tiktoken |
-| **ProviderBudget** | Implements PromptBudget | Provider-specific token counting |
+| **ProviderBudget** | Standalone interface | Provider-specific token capacity lookup (implemented in WO-S4-005) |
 | **Replay** | Pipeline extension | Deterministic replay from action log |
 | **Undo** | Runtime extension | Inverse operations for each Action type |
 | **WorldSnapshot** | Pipeline extension | Cached, incremental world state serialization |

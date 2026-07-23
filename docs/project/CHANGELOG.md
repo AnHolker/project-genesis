@@ -1115,6 +1115,47 @@
 - No breaking changes to any Public API
 - Architecture version v0.28
 
+### WO-S4-005 — Provider Budget Foundation
+
+- **New `ProviderBudget` interface** — pure lookup component for provider/model token capacity
+  - `getBudget(provider: string, model?: string): ProviderBudgetResult`
+  - Single-method interface, pure and deterministic
+  - No dependencies on PromptBudget, PromptSelection, PromptCompression, Planner, or Provider
+- **New `ProviderBudgetResult` interface** — token capacity data type
+  - `maxInputTokens: number` — maximum input tokens (required)
+  - `maxOutputTokens?: number` — optional maximum output tokens
+- **New `DefaultProviderBudget` class** — static lookup table with conservative defaults
+  - OpenAI (generic): 8,192 input / 4,096 output
+  - DeepSeek (generic): 65,536 input / 8,192 output
+  - Anthropic (generic): 100,000 input / 4,096 output
+  - Mock: 4,096 input / 1,024 output
+  - Unknown provider fallback: 4,096 input / 1,024 output
+  - Model-specific overrides: gpt-4, gpt-4-turbo, gpt-4o, gpt-3.5-turbo, deepseek-chat, claude-3-opus, claude-3-sonnet, claude-3-haiku
+  - Lookup order: exact model override → provider default → unknown fallback
+- **Completely independent from PromptBudget** — separate types, separate interface, separate purpose
+- **No integration with PromptSelection** — deferred to future Work Order
+- Created ADR-0042: Provider Budget Foundation
+- All 941 tests pass (879 existing + 47 new + 15 web) with zero modifications to existing tests
+- New test file `ProviderBudgetFoundation.test.ts` (47 tests, 12 groups):
+  - Interface Structure (4 tests): only maxInputTokens, both fields, undefined maxOutputTokens, zero values
+  - Default Provider Budgets (4 tests): openai, deepseek, anthropic, mock
+  - Unknown Provider Fallback (3 tests): unknown, empty string, random string
+  - Model-Specific Lookup (10 tests): all model overrides, unknown model fallback, undefined model fallback
+  - Deterministic Behavior (4 tests): same provider+model, same provider, different providers, different models
+  - Immutability (2 tests): input arguments unchanged, value equality
+  - Custom ProviderBudget Implementation (4 tests): custom budget, custom default, custom fallback, type constraint
+  - RetryPlanner Compatibility (2 tests): idempotent across calls, all providers
+  - ToolCallPlanner Compatibility (2 tests): tool-calling providers, provider-level lookup
+  - Streaming Compatibility (1 test): consistent budget across streaming
+  - Backward Compatibility (4 tests): exports unchanged, no existing component modified, no PromptBudget dependency, standalone usage
+  - Exports (3 tests): ProviderBudget type, DefaultProviderBudget class, ProviderBudgetResult type
+  - Independence from PromptBudget (2 tests): different fields, standalone import
+  - Constructor (2 tests): no-arg instance, multiple instances
+- TypeScript 0 errors, ESLint 0 errors (only pre-existing warnings)
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, or any existing component
+- No breaking changes to any Public API
+- Architecture version v0.29
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness

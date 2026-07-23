@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.28)
+> Project Genesis — AI Architecture Reference (v0.29)
 > Primary reference for all AI development.
 
 ---
@@ -277,8 +277,47 @@ interface PromptBudgetResult {
 
 **Future implementations** (not implemented):
 - TokenBudget — real tokenizer (tiktoken, etc.)
-- ProviderBudget — provider-specific counting
 - ModelSpecificBudget — model-aware budget
+
+### ProviderBudget
+
+Standalone configuration component that represents the token capacity of different AI providers and models. Completely independent from PromptBudget — it measures provider capacity, not prompt size.
+
+```typescript
+interface ProviderBudget {
+  getBudget(provider: string, model?: string): ProviderBudgetResult
+}
+```
+
+- `getBudget()` — accepts provider name and optional model name, returns capacity limits
+- Pure lookup: no side effects, no I/O, no network requests, no SDK calls
+- No dependencies on PromptBudget, PromptSelection, PromptCompression, Planner, or Provider
+- Not integrated with PromptBuilder — configuration only, wired in future WOs
+
+**ProviderBudgetResult:**
+```typescript
+interface ProviderBudgetResult {
+  maxInputTokens: number             // Maximum input tokens this provider/model supports
+  maxOutputTokens?: number            // Optional maximum output tokens
+}
+```
+
+**DefaultProviderBudget** — static lookup table with conservative defaults:
+
+| Provider | maxInputTokens | maxOutputTokens |
+|----------|---------------|-----------------|
+| openai (generic) | 8,192 | 4,096 |
+| deepseek (generic) | 65,536 | 8,192 |
+| anthropic (generic) | 100,000 | 4,096 |
+| mock | 4,096 | 1,024 |
+| unknown | 4,096 | 1,024 |
+
+Model-specific overrides (e.g., gpt-4o → 128,000 input, 16,384 output) are resolved when a model name is provided.
+
+**Future implementations** (not implemented):
+- ProviderBudget → PromptSelection integration
+- Dynamic capability discovery from provider APIs
+- Custom provider budgets via configuration
 
 ### MemoryRanking
 
