@@ -13,6 +13,7 @@ import type { PromptBudgetResult } from './PromptBudgetResult'
 import type { MemoryRankingResult } from './MemoryRankingResult'
 import type { ProviderBudget } from './ProviderBudget'
 import type { ProviderBudgetResult } from './ProviderBudgetResult'
+import type { AIConfiguration } from '../config'
 import type { Observation } from '../agent'
 import type { ReflectionResult } from '../reflection'
 import { DefaultPromptRenderer } from './DefaultPromptRenderer'
@@ -32,8 +33,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
     private readonly budget: PromptBudget = new DefaultPromptBudget(),
     private readonly selection: PromptSelection = new DefaultPromptSelection(),
     private readonly providerBudget?: ProviderBudget,
-    private readonly providerName: string = 'openai',
-    private readonly modelName?: string,
+    private readonly configuration?: AIConfiguration,
   ) {}
 
   async build(context: PipelineContext): Promise<AIRequest> {
@@ -58,14 +58,15 @@ export class DefaultPromptBuilder implements PromptBuilder {
     const budgetResult: PromptBudgetResult = this.budget.calculate(promptContext)
 
     // Phase 2.5: ProviderBudget — look up provider/model capacity (pure lookup)
-    // Only performed when a ProviderBudget instance is injected
+    // Uses AIConfiguration when available, otherwise falls back to defaults
     let providerBudgetResult: ProviderBudgetResult | undefined
     if (this.providerBudget !== undefined) {
-      providerBudgetResult = this.providerBudget.getBudget(this.providerName, this.modelName)
+      const provider = this.configuration?.provider ?? 'openai'
+      const model = this.configuration?.model
+      providerBudgetResult = this.providerBudget.getBudget(provider, model)
     }
 
     // Phase 3: PromptSelection — decide which sections to preserve (pure decision)
-    // Now consumes MemoryRanking, PromptBudget, AND ProviderBudget results
     const selectionResult: PromptSelectionResult = this.selection.select(
       promptContext,
       rankingResult,
@@ -74,7 +75,6 @@ export class DefaultPromptBuilder implements PromptBuilder {
     )
 
     // Phase 4: PromptCompression — clean up context (consumes selection result)
-    // Since WO-S4-003, compression handles selection-based exclusion directly
     const compressed = this.compression.compress(promptContext, selectionResult)
 
     // Phase 6: PromptRenderer — convert to string
@@ -102,13 +102,6 @@ export class DefaultPromptBuilder implements PromptBuilder {
 
   /**
    * Get the structured PromptContext for the given PipelineContext.
-   *
-   * This method composes the same data as build() but returns it as a
-   * structured PromptContext instead of a serialized string.
-   * Useful for consumers that need structured access to prompt sections.
-   *
-   * Only modules implementing buildContext() contribute structured data.
-   * Legacy modules (build() only) are skipped.
    */
   async buildContext(context: PipelineContext): Promise<PromptContext> {
     const promptContext: PromptContext = {}
@@ -120,14 +113,16 @@ export class DefaultPromptBuilder implements PromptBuilder {
       }
     }
 
-    // Full assembly pipeline (results are pure measurements, only selection and compression modify)
+    // Full assembly pipeline
     const rankingResult = this.ranking.rank(promptContext)
     const budgetResult = this.budget.calculate(promptContext)
 
     // ProviderBudget: only when injected
     let providerBudgetResult: ProviderBudgetResult | undefined
     if (this.providerBudget !== undefined) {
-      providerBudgetResult = this.providerBudget.getBudget(this.providerName, this.modelName)
+      const provider = this.configuration?.provider ?? 'openai'
+      const model = this.configuration?.model
+      providerBudgetResult = this.providerBudget.getBudget(provider, model)
     }
 
     const selectionResult = this.selection.select(promptContext, rankingResult, budgetResult, providerBudgetResult)
@@ -138,12 +133,6 @@ export class DefaultPromptBuilder implements PromptBuilder {
 
   /**
    * Convert structured Observation[] to formatted prompt text.
-   *
-   * This is the canonical formatting method — the single source of truth
-   * for how observations appear in the prompt. AgentLoop calls this
-   * method instead of doing its own inline formatting.
-   *
-   * Delegates to the same formatter used by ObservationPromptModule.
    */
   formatObservations(observations: Observation[]): string {
     return doFormat(observations)
@@ -151,10 +140,6 @@ export class DefaultPromptBuilder implements PromptBuilder {
 
   /**
    * Convert structured ReflectionResult[] to formatted prompt text.
-   *
-   * This is the canonical formatting method for how reflection results
-   * appear in the prompt. Delegates to the same formatter used by
-   * ReflectionPromptModule.
    */
   formatReflectionResults(results: ReflectionResult[]): string {
     return doFormatReflection(results)

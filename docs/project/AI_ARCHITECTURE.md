@@ -130,13 +130,14 @@ constructor(
   ranking?: MemoryRanking,            // default: DefaultMemoryRanking
   budget?: PromptBudget,              // default: DefaultPromptBudget
   selection?: PromptSelection,        // default: DefaultPromptSelection
-  providerBudget?: ProviderBudget,    // default: undefined (NEW — WO-S4-006)
-  providerName?: string,              // default: 'openai' (NEW — WO-S4-006)
-  modelName?: string,                 // default: undefined (NEW — WO-S4-006)
+  providerBudget?: ProviderBudget,    // default: undefined
+  configuration?: AIConfiguration,    // default: undefined (falls back to 'openai' provider)
 )
 ```
 
-All optional parameters are fully backward compatible — existing 1-6 param constructors continue working unchanged.
+All optional parameters are fully backward compatible — existing 1-7 param constructors continue working unchanged.
+Since WO-S4-008, `configuration` replaces the old `providerName` and `modelName` parameters:
+ProviderBudget lookup uses `configuration.provider` and `configuration.model`.
 
 ### PromptRenderer
 

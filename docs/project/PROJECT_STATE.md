@@ -16,7 +16,7 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.31 (Sprint 4) |
+| Architecture Version | v0.32 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
@@ -112,6 +112,7 @@
 | WO-S4-005 | Provider Budget Foundation |
 | WO-S4-006 | Provider Budget Consumption |
 | WO-S4-007 | AI Configuration Foundation |
+| WO-S4-008 | AI Configuration Consumption |
 
 ---
 
@@ -259,18 +260,17 @@ interface PromptRenderer {
 //
 // PromptBuilder collects PromptContext → PromptSelection decides which sections → PromptRenderer renders to string
 //
-// DefaultPromptBuilder now accepts optional PromptRenderer, PromptCompression, MemoryRanking, PromptBudget, and PromptSelection
+// DefaultPromptBuilder now accepts optional PromptRenderer, PromptCompression, MemoryRanking, PromptBudget, PromptSelection, ProviderBudget, and AIConfiguration
 //   (defaults to DefaultPromptRenderer — renders in insertion order)
 //   (defaults to DefaultPromptCompression — strips undefined/empty fields)
 //   (defaults to DefaultMemoryRanking — fixed priority ranking)
 //   (defaults to DefaultPromptBudget — character count budget)
 //   (defaults to DefaultPromptSelection — rule-based budget-aware selection)
+//   (defaults to no ProviderBudget — no provider budget lookup)
+//   (defaults to no AIConfiguration — falls back to 'openai' provider)
 //
-// DefaultPromptSelection now CONSUMES MemoryRanking and PromptBudget results:
-//   - Budget sufficient (totalLength <= maxBudgetChars) → preserves all sections
-//   - Budget constrained (totalLength > maxBudgetChars) → removes lowest-priority sections
-//   - Constructor accepts optional maxBudgetChars (default: Infinity)
-//   - Falls back to preserving all sections when ranking or budget is not provided
+// AIConfiguration replaces the old providerName and modelName constructor params:
+//   ProviderBudget lookup now uses configuration.provider and configuration.model
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
@@ -670,6 +670,7 @@ Key remaining items:
 | ADR-0042 | Provider Budget Foundation | `docs/adr/ADR-0042-provider-budget-foundation.md` |
 | ADR-0043 | Provider Budget Consumption | `docs/adr/ADR-0043-provider-budget-consumption.md` |
 | ADR-0044 | AI Configuration Foundation | `docs/adr/ADR-0044-ai-configuration-foundation.md` |
+| ADR-0045 | AI Configuration Consumption | `docs/adr/ADR-0045-ai-configuration-consumption.md` |
 
 ---
 

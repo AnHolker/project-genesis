@@ -567,7 +567,7 @@ describe('PromptBuilder — ProviderBudget Integration', () => {
       undefined,
       undefined,
       providerBudget,
-      'deepseek',
+      { provider: 'deepseek', model: 'deepseek-chat', temperature: 0, maxTokens: 0 },
     )
     const request = await builder.build({ input: 'hello' })
     const assembly = request.metadata?.promptAssembly as Record<string, unknown>
@@ -585,8 +585,7 @@ describe('PromptBuilder — ProviderBudget Integration', () => {
       undefined,
       undefined,
       providerBudget,
-      'openai',
-      'gpt-4o',
+      { provider: 'openai', model: 'gpt-4o', temperature: 0, maxTokens: 0 },
     )
     const request = await builder.build({ input: 'hello' })
     const assembly = request.metadata?.promptAssembly as Record<string, unknown>
@@ -605,7 +604,7 @@ describe('PromptBuilder — ProviderBudget Integration', () => {
       undefined,
       undefined,
       providerBudget,
-      'openai',
+      { provider: 'openai', model: 'gpt-4o', temperature: 0, maxTokens: 0 },
     )
 
     const builderDeepSeek = new DefaultPromptBuilder(
@@ -616,7 +615,7 @@ describe('PromptBuilder — ProviderBudget Integration', () => {
       undefined,
       undefined,
       providerBudget,
-      'deepseek',
+      { provider: 'deepseek', model: 'deepseek-chat', temperature: 0, maxTokens: 0 },
     )
 
     const requestOpenAI = await builderOpenAI.build({ input: 'hello' })
@@ -628,7 +627,7 @@ describe('PromptBuilder — ProviderBudget Integration', () => {
     const pbOpenAI = assemblyOpenAI.providerBudget as ProviderBudgetResult
     const pbDeepSeek = assemblyDeepSeek.providerBudget as ProviderBudgetResult
 
-    expect(pbOpenAI.maxInputTokens).toBe(8192)
+    expect(pbOpenAI.maxInputTokens).toBe(128000)
     expect(pbDeepSeek.maxInputTokens).toBe(65536)
   })
 })
@@ -967,8 +966,7 @@ describe('PromptSelection — ProviderBudget Metadata', () => {
       undefined,
       undefined,
       providerBudget,
-      'openai',
-      'gpt-4o',
+      { provider: 'openai', model: 'gpt-4o', temperature: 0, maxTokens: 0 },
     )
 
     const request = await builder.build({ input: 'hello' })

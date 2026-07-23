@@ -1240,6 +1240,35 @@
 - No breaking changes to any Public API
 - Architecture version v0.31
 
+### WO-S4-008 — AI Configuration Consumption
+
+- **DefaultPromptBuilder constructor simplified** — `providerName` and `modelName` params removed
+  - New 8th parameter: `configuration?: AIConfiguration` (replaces old `providerName`: string + `modelName?: string`)
+  - ProviderBudget lookup now uses `configuration.provider` and `configuration.model`
+  - Falls back to `'openai'` provider when no configuration is provided (same default as before)
+  - Builder constructor shrinks from 9 to 8 params
+  - All existing 1-7 param constructors work unchanged (backward compatible)
+- **AIConfiguration becomes the single configuration source** for the Prompt Assembly pipeline
+  - No more separate `providerName`/`modelName` strings
+  - Future configuration fields (e.g., `streaming`, `toolCalling`, `charsPerToken`) naturally slot into AIConfiguration
+- **No runtime behavior changes** — only configuration flow refactored
+- **No PromptBuilder interface change** — `PromptBuilder` interface unchanged
+- Created ADR-0045: AI Configuration Consumption
+- All 1048 tests pass (1014 existing + 19 new + 15 web) with zero modifications to existing tests
+- New test file `AIConfigurationConsumption.test.ts` (19 tests, 7 groups):
+  - AIConfiguration Consumption (5 tests): 8-param constructor, provider lookup, model-specific lookup, fallback, metadata
+  - DefaultAIConfiguration Compatibility (2 tests): accepts DefaultAIConfiguration, uses mock provider
+  - Backward Compatibility (6 tests): 1-param, 6-param, 7-param, 8-param, no configuration, identical prompt content
+  - Deterministic (2 tests): identical metadata for identical config, different metadata for different providers
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (1 test): works with streaming
+  - AgentLoop Compatibility (1 test): works with AgentLoop
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, or any existing component
+- No breaking changes to any Public API
+- Architecture version v0.32
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness
