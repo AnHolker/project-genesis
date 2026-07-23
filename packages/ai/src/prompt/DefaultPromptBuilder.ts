@@ -16,6 +16,7 @@ import type { ProviderBudgetResult } from './ProviderBudgetResult'
 import type { AIConfiguration } from '../config'
 import type { Observation } from '../agent'
 import type { ReflectionResult } from '../reflection'
+import type { BuilderOptions } from './BuilderOptions'
 import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 import { DefaultPromptCompression } from './DefaultPromptCompression'
 import { DefaultMemoryRanking } from './DefaultMemoryRanking'
@@ -25,16 +26,77 @@ import { formatObservations as doFormat } from './modules/ObservationPromptModul
 import { formatReflectionResults as doFormatReflection } from './modules/ReflectionPromptModule'
 
 export class DefaultPromptBuilder implements PromptBuilder {
+  private readonly modules: PromptModule[]
+  private readonly renderer: PromptRenderer
+  private readonly compression: PromptCompression
+  private readonly ranking: MemoryRanking
+  private readonly budget: PromptBudget
+  private readonly selection: PromptSelection
+  private readonly providerBudget?: ProviderBudget
+  private readonly configuration?: AIConfiguration
+
+  /**
+   * Create a DefaultPromptBuilder.
+   *
+   * Two constructor forms are supported:
+   *
+   * 1. **BuilderOptions form** (recommended):
+   *    ```
+   *    new DefaultPromptBuilder(modules, {
+   *      renderer: myRenderer,
+   *      compression: myCompression,
+   *      configuration: myConfig,
+   *    })
+   *    ```
+   *
+   * 2. **Legacy positional form** (backward compatible):
+   *    ```
+   *    new DefaultPromptBuilder(modules, renderer, compression, ranking, budget, selection, providerBudget, configuration)
+   *    ```
+   */
+  constructor(modules: PromptModule[], options?: BuilderOptions)
   constructor(
-    private readonly modules: PromptModule[],
-    private readonly renderer: PromptRenderer = new DefaultPromptRenderer(),
-    private readonly compression: PromptCompression = new DefaultPromptCompression(),
-    private readonly ranking: MemoryRanking = new DefaultMemoryRanking(),
-    private readonly budget: PromptBudget = new DefaultPromptBudget(),
-    private readonly selection: PromptSelection = new DefaultPromptSelection(),
-    private readonly providerBudget?: ProviderBudget,
-    private readonly configuration?: AIConfiguration,
-  ) {}
+    modules: PromptModule[],
+    renderer?: PromptRenderer,
+    compression?: PromptCompression,
+    ranking?: MemoryRanking,
+    budget?: PromptBudget,
+    selection?: PromptSelection,
+    providerBudget?: ProviderBudget,
+    configuration?: AIConfiguration,
+  )
+  constructor(
+    modules: PromptModule[],
+    rendererOrOptions?: PromptRenderer | BuilderOptions,
+    compression?: PromptCompression,
+    ranking?: MemoryRanking,
+    budget?: PromptBudget,
+    selection?: PromptSelection,
+    providerBudget?: ProviderBudget,
+    configuration?: AIConfiguration,
+  ) {
+    this.modules = modules
+    if (rendererOrOptions !== undefined && !('render' in rendererOrOptions)) {
+      // BuilderOptions form
+      const opts = rendererOrOptions as BuilderOptions
+      this.renderer = opts.renderer ?? new DefaultPromptRenderer()
+      this.compression = opts.compression ?? new DefaultPromptCompression()
+      this.ranking = opts.ranking ?? new DefaultMemoryRanking()
+      this.budget = opts.budget ?? new DefaultPromptBudget()
+      this.selection = opts.selection ?? new DefaultPromptSelection()
+      this.providerBudget = opts.providerBudget
+      this.configuration = opts.configuration
+    } else {
+      // Legacy positional form
+      this.renderer = (rendererOrOptions as PromptRenderer | undefined) ?? new DefaultPromptRenderer()
+      this.compression = compression ?? new DefaultPromptCompression()
+      this.ranking = ranking ?? new DefaultMemoryRanking()
+      this.budget = budget ?? new DefaultPromptBudget()
+      this.selection = selection ?? new DefaultPromptSelection()
+      this.providerBudget = providerBudget
+      this.configuration = configuration
+    }
+  }
 
   async build(context: PipelineContext): Promise<AIRequest> {
     const promptContext: PromptContext = {}

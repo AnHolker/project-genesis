@@ -1269,7 +1269,49 @@
 - No breaking changes to any Public API
 - Architecture version v0.32
 
-### WO-S4-009 — BuilderOptions Foundation
+### WO-S4-010 — BuilderOptions Consumption
+
+- **DefaultPromptBuilder constructor refactored** to consume `BuilderOptions`
+  - New primary form: `constructor(modules: PromptModule[], options?: BuilderOptions)`
+  - Legacy positional form preserved: `constructor(modules, renderer?, compression?, ..., configuration?)`
+  - Both forms are fully type-safe via TypeScript constructor overloads
+  - Runtime discriminator detects whether second arg is `BuilderOptions` (object with fields) or `PromptRenderer` (has `render` method)
+  - Internally destructures `BuilderOptions` into the same private fields used by the legacy form
+- **No runtime behavior changes** — execution order, pipeline flow, metadata, PromptAssembly all unchanged
+- **PromptBuilder interface unchanged** — `PromptBuilder` interface not modified
+- **All existing call sites compatible** — no migration needed for 1-param callers
+- **All legacy constructor forms preserved:**
+  - 1-param: `(modules)` — unchanged
+  - 2-param: `(modules, renderer)` — unchanged
+  - 3-param: `(modules, renderer, compression)` — unchanged
+  - 4-param: `(modules, renderer, compression, ranking)` — unchanged
+  - 5-param: `(modules, renderer, compression, ranking, budget)` — unchanged
+  - 6-param: `(modules, renderer, compression, ranking, budget, selection)` — unchanged
+  - 7-param: `(modules, renderer, compression, ranking, budget, selection, providerBudget)` — unchanged
+  - 8-param: `(modules, renderer, compression, ranking, budget, selection, providerBudget, configuration)` — unchanged
+  - All forms produce identical runtime behavior
+- **BuilderOptions form verified identical** to legacy form (same output, same metadata)
+- Updated ADR-0046: status changed to Superseded, consumption section added, architecture version updated
+- All 1124 tests pass (1109 existing + 37 new + 15 web) with zero modifications to existing tests
+- New test file `BuilderOptionsConsumption.test.ts` (37 tests, 14 groups):
+  - BuilderOptions Constructor (5 tests): all fields, no options, single field, partial fields, custom implementation
+  - Default Options (4 tests): no options, undefined, empty, omitted fields
+  - Full Options (2 tests): full options build, full options buildContext
+  - Backward Compatibility — Legacy Positional Form (9 tests): 1-param through 8-param legacy constructors, undefined params
+  - Identical Behavior — BuilderOptions vs Legacy (2 tests): full param form identical, partial param form identical
+  - PromptAssembly Unchanged (2 tests): assembly metadata, execution order
+  - ProviderBudget Integration (2 tests): ProviderBudget passthrough, exclusion when not configured
+  - AIConfiguration Integration (2 tests): configuration via BuilderOptions, ProviderBudget lookup
+  - Deterministic (2 tests): same BuilderOptions, different instances same options
+  - Immutability (2 tests): options not mutated, option fields not referenced after construction
+  - RetryPlanner Compatibility (1 test): works with BuilderOptions
+  - ToolCallPlanner Compatibility (1 test): works with BuilderOptions
+  - Streaming Compatibility (1 test): works with BuilderOptions
+  - AgentLoop Compatibility (2 tests): AgentLoop + Reflection, DefaultAgentLoop directly
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, or any existing component
+- No breaking changes to any Public API
+- Architecture version v0.34
 
 - **New `BuilderOptions` interface** — consolidated options object for `DefaultPromptBuilder`
   - Created in `packages/ai/src/prompt/BuilderOptions.ts`

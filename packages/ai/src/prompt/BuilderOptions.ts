@@ -10,8 +10,9 @@ import type { AIConfiguration } from '../config'
  * BuilderOptions consolidates all optional collaborators for DefaultPromptBuilder
  * into a single options object, preventing constructor parameter growth.
  *
- * This is the Foundation layer only — BuilderOptions is NOT consumed by
- * DefaultPromptBuilder yet. The current constructor remains unchanged.
+ * Since WO-S4-010, DefaultPromptBuilder consumes BuilderOptions directly
+ * via constructor overloads. The legacy positional parameter form is preserved
+ * for backward compatibility.
  *
  * Design principles:
  * - All fields are optional — no breaking changes
@@ -19,7 +20,7 @@ import type { AIConfiguration } from '../config'
  * - No new fields beyond what the constructor already accepts
  * - Pure data object — no methods, no behavior
  *
- * @see DefaultPromptBuilder — future consumer of BuilderOptions
+ * @see DefaultPromptBuilder — consumes BuilderOptions via constructor overload
  */
 export interface BuilderOptions {
   /** Optional PromptRenderer (defaults to DefaultPromptRenderer) */

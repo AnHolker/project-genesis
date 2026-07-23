@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.33)
+> Project Genesis — AI Architecture Reference (v0.34)
 > Primary reference for all AI development.
 
 ### BuilderOptions
@@ -149,6 +149,13 @@ interface PromptBuilder {
 
 **Constructor:**
 ```typescript
+// Primary form (WO-S4-010, recommended):
+constructor(
+  modules: PromptModule[],
+  options?: BuilderOptions,          // ← single options object (WO-S4-010)
+)
+
+// Legacy positional form (backward compatible):
 constructor(
   modules: PromptModule[],
   renderer?: PromptRenderer,          // default: DefaultPromptRenderer
@@ -161,9 +168,21 @@ constructor(
 )
 ```
 
-All optional parameters are fully backward compatible — existing 1-7 param constructors continue working unchanged.
-Since WO-S4-008, `configuration` replaces the old `providerName` and `modelName` parameters:
-ProviderBudget lookup uses `configuration.provider` and `configuration.model`.
+All optional parameters are fully backward compatible — existing 1-8 param constructors continue working unchanged.
+The `BuilderOptions` form is the recommended way to construct `DefaultPromptBuilder`. It consolidates all optional collaborators into a single object, preventing future constructor parameter growth.
+
+`BuilderOptions` fields:
+```typescript
+interface BuilderOptions {
+  renderer?: PromptRenderer
+  compression?: PromptCompression
+  ranking?: MemoryRanking
+  budget?: PromptBudget
+  selection?: PromptSelection
+  providerBudget?: ProviderBudget
+  configuration?: AIConfiguration
+}
+```
 
 ### PromptRenderer
 

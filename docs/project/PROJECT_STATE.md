@@ -16,7 +16,7 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.33 (Sprint 4) |
+| Architecture Version | v0.34 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
@@ -114,6 +114,7 @@
 | WO-S4-007 | AI Configuration Foundation |
 | WO-S4-008 | AI Configuration Consumption |
 | WO-S4-009 | BuilderOptions Foundation |
+| WO-S4-010 | BuilderOptions Consumption |
 
 ---
 
