@@ -1,7 +1,33 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.30)
+> Project Genesis — AI Architecture Reference (v0.33)
 > Primary reference for all AI development.
+
+### BuilderOptions
+
+`BuilderOptions` is a consolidated options interface for `DefaultPromptBuilder`, introduced in WO-S4-009.
+
+```typescript
+interface BuilderOptions {
+  renderer?: PromptRenderer
+  compression?: PromptCompression
+  ranking?: MemoryRanking
+  budget?: PromptBudget
+  selection?: PromptSelection
+  providerBudget?: ProviderBudget
+  configuration?: AIConfiguration
+}
+```
+
+**Current status:** Foundation only — the interface exists and is publicly exported, but is NOT yet consumed by `DefaultPromptBuilder`. The constructor still uses positional parameters.
+
+**Design principles:**
+- All fields are optional
+- Each field maps 1:1 to an existing constructor parameter
+- No new fields beyond what the constructor already accepts
+- Pure data interface — no methods, no behavior
+
+**Future:** BuilderOptions will replace the positional parameter constructor in a future Work Order.
 
 ---
 

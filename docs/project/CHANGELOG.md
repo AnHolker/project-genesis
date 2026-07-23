@@ -1269,11 +1269,45 @@
 - No breaking changes to any Public API
 - Architecture version v0.32
 
----
+### WO-S4-009 — BuilderOptions Foundation
 
-## Sprint 4 — AI Polish & Production Readiness
-
-### WO-S4-000 — Project Development Standards Foundation
+- **New `BuilderOptions` interface** — consolidated options object for `DefaultPromptBuilder`
+  - Created in `packages/ai/src/prompt/BuilderOptions.ts`
+  - Seven optional fields, each mapping 1:1 to existing constructor parameters:
+    - `renderer?: PromptRenderer`
+    - `compression?: PromptCompression`
+    - `ranking?: MemoryRanking`
+    - `budget?: PromptBudget`
+    - `selection?: PromptSelection`
+    - `providerBudget?: ProviderBudget`
+    - `configuration?: AIConfiguration`
+  - Pure data interface — no methods, no behavior
+  - All fields optional — zero breaking changes
+  - Foundation only — NOT yet consumed by `DefaultPromptBuilder` constructor
+- **Public exports added** — `BuilderOptions` type exported from:
+  - `packages/ai/src/prompt/index.ts`
+  - `packages/ai/src/index.ts` (package root)
+- **No runtime behavior changes** — zero lines of runtime logic added
+- **No constructor modifications** — `DefaultPromptBuilder` constructor unchanged
+- **No PromptBuilder interface changes** — `PromptBuilder` interface unchanged
+- **No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, or any existing component**
+- Created ADR-0046: BuilderOptions Foundation
+- All 1087 tests pass (1072 existing + 39 new + 15 web) with zero modifications to existing tests
+- New test file `BuilderOptionsFoundation.test.ts` (39 tests, 11 groups):
+  - BuilderOptions Interface (10 tests): empty object, each field individually, all fields simultaneously, partial assignment
+  - Optional Fields (2 tests): undefined fields, Partial type
+  - Deterministic Behavior (2 tests): empty structure, all fields structure
+  - Type Compatibility (8 tests): default implementations for each field, custom implementations for each field
+  - Backward Compatibility (7 tests): PromptBuilder interface, 1/3/5/6/7/8-param constructors
+  - PromptBuilder Unchanged (3 tests): identical build output, 8-param constructor output, buildContext output
+  - RetryPlanner Compatibility (1 test): works with RetryPlanner
+  - ToolCallPlanner Compatibility (1 test): works with ToolCallPlanner
+  - Streaming Compatibility (1 test): works with streaming path
+  - AgentLoop Compatibility (2 tests): works with AgentLoop and Reflection, DefaultAgentLoop directly
+  - Exports (2 tests): exported from prompt module and package root
+- TypeScript 0 errors, ESLint 0 errors
+- No breaking changes to any Public API
+- Architecture version v0.33
 
 - Created `docs/project/AI_DEVELOPMENT_STANDARD.md` (v1.0)
   - Permanent engineering workflow for AI-assisted development

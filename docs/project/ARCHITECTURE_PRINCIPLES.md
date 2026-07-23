@@ -186,6 +186,7 @@ These extension points are documented but not yet implemented. Future Work Order
 | Extension | Slot | Description |
 |-----------|------|-------------|
 | **PromptSelection** | Between Budget and Compression | Conditional section inclusion based on context |
+| **BuilderOptions** | DefaultPromptBuilder constructor | Consolidate all optional params into a single options object |
 | **TokenCompression** | Implements PromptCompression | Token-aware truncation or summarization |
 | **MemoryRanking (consumption)** | MemoryPromptModule | Top-K memory selection based on ranking |
 | **HeuristicRanking** | Implements MemoryRanking | Score by recency, length, keyword match |

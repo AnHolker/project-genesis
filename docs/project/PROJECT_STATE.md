@@ -16,7 +16,7 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.32 (Sprint 4) |
+| Architecture Version | v0.33 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
@@ -113,6 +113,7 @@
 | WO-S4-006 | Provider Budget Consumption |
 | WO-S4-007 | AI Configuration Foundation |
 | WO-S4-008 | AI Configuration Consumption |
+| WO-S4-009 | BuilderOptions Foundation |
 
 ---
 
@@ -269,8 +270,9 @@ interface PromptRenderer {
 //   (defaults to no ProviderBudget — no provider budget lookup)
 //   (defaults to no AIConfiguration — falls back to 'openai' provider)
 //
-// AIConfiguration replaces the old providerName and modelName constructor params:
-//   ProviderBudget lookup now uses configuration.provider and configuration.model
+// BuilderOptions consolidates all optional params into a single options object
+//   (available as public type — NOT yet consumed by the constructor)
+//   See BuilderOptions type in prompt/BuilderOptions.ts
 //
 // Observation formatting is owned by PromptBuilder:
 //   formatObservations(obs: Observation[]): string         — rich format for ObservationPromptModule
@@ -671,6 +673,7 @@ Key remaining items:
 | ADR-0043 | Provider Budget Consumption | `docs/adr/ADR-0043-provider-budget-consumption.md` |
 | ADR-0044 | AI Configuration Foundation | `docs/adr/ADR-0044-ai-configuration-foundation.md` |
 | ADR-0045 | AI Configuration Consumption | `docs/adr/ADR-0045-ai-configuration-consumption.md` |
+| ADR-0046 | BuilderOptions Foundation | `docs/adr/ADR-0046-builder-options-foundation.md` |
 
 ---
 
