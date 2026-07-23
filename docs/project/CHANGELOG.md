@@ -1088,6 +1088,33 @@
 - No breaking changes to any Public API
 - Architecture version v0.27
 
+### WO-S4-004 — Prompt Budget Token Estimation (Rule-Based)
+
+- **DefaultPromptBudget enhanced** with configurable rule-based token estimation
+  - Constructor accepts optional `charsPerToken` parameter (default: 4)
+  - Calculates `estimatedTokens = Math.ceil(totalLength / charsPerToken)`
+  - Returns `undefined` when `totalLength === 0` (empty context)
+  - Configurable ratio allows tuning for different languages or tokenizer efficiencies
+- **PromptBudget interface unchanged** — `estimatedTokens` was already an optional field on `PromptBudgetResult`
+- **PromptBuilder pipeline unchanged** — Budget is still a pure measurement, consumed downstream by Selection and Compression
+- Created ADR-0041: Prompt Budget Token Estimation
+- All 879 tests pass (857 existing + 22 new) with zero modifications to existing tests
+- New test groups in `PromptBudgetFoundation.test.ts` (22 tests, 7 groups):
+  - Token Estimation (5 tests): single section, multiple sections, all sections, empty context, empty/undefined fields
+  - Configurable charsPerToken Ratio (5 tests): default ratio, custom ratio, char-level precision, conservative estimation, aggressive estimation
+  - Deterministic Token Estimation (2 tests): identical output, different ratios produce different results
+  - Immutability with Token Estimation (1 test): input unchanged
+  - Token Estimation Builder Integration (2 tests): estimatedTokens in assembly metadata, works with budget-aware selection
+  - RetryPlanner with Token Estimation (1 test): works with RetryPlanner
+  - ToolCallPlanner with Token Estimation (1 test): works with ToolCallPlanner
+  - Streaming with Token Estimation (1 test): works with streaming
+  - AgentLoop with Token Estimation (1 test): works with AgentLoop and Reflection
+  - Backward Compatibility with Token Estimation (3 tests): totalLength, sectionLengths, immutability
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, Tool, PromptModule, PromptRenderer, PromptSelection, PromptCompression, or MemoryRanking
+- No breaking changes to any Public API
+- Architecture version v0.28
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness

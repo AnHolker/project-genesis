@@ -231,10 +231,11 @@ describe('DefaultPromptBudget — Full Context', () => {
       result.sectionLengths.reflections!)
   })
 
-  it('should not set estimatedTokens by default', () => {
+  it('should calculate estimatedTokens by default', () => {
     const budget = new DefaultPromptBudget()
     const result = budget.calculate({ system: 'hello' })
-    expect(result.estimatedTokens).toBeUndefined()
+    // 'hello' = 5 chars / 4 = 1.25 → ceil to 2
+    expect(result.estimatedTokens).toBe(2)
   })
 })
 
@@ -443,5 +444,269 @@ describe('PromptBudget Exports', () => {
   it('should export DefaultPromptBudget from package root', async () => {
     const { DefaultPromptBudget: DPB } = await import('..')
     expect(DPB).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptBudget — Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptBudget — Token Estimation', () => {
+  it('should calculate estimatedTokens for single section', () => {
+    const budget = new DefaultPromptBudget()
+    // 'hello' = 5 chars → 5/4 = 1.25 → ceil to 2
+    const result = budget.calculate({ system: 'hello' })
+    expect(result.estimatedTokens).toBe(2)
+  })
+
+  it('should calculate estimatedTokens for multiple sections', () => {
+    const budget = new DefaultPromptBudget()
+    // system: 4 chars, userInput: 10 chars → total: 14 → 14/4 = 3.5 → ceil to 4
+    const result = budget.calculate({ system: 'test', userInput: 'hello world' })
+    expect(result.estimatedTokens).toBe(4)
+  })
+
+  it('should calculate estimatedTokens for all populated sections', () => {
+    const budget = new DefaultPromptBudget()
+    // Total: 3+2+3+5+3+4 = 20 → 20/4 = 5
+    const result = budget.calculate({
+      system: 'sys',
+      userInput: 'in',
+      memory: 'mem',
+      worldState: 'world',
+      observations: 'obs',
+      reflections: 'refl',
+    })
+    expect(result.estimatedTokens).toBe(5)
+  })
+
+  it('should return undefined estimatedTokens for empty context', () => {
+    const budget = new DefaultPromptBudget()
+    const result = budget.calculate({})
+    expect(result.estimatedTokens).toBeUndefined()
+  })
+
+  it('should return undefined estimatedTokens when all fields are empty/undefined', () => {
+    const budget = new DefaultPromptBudget()
+    const result = budget.calculate({ system: undefined, userInput: '' })
+    expect(result.estimatedTokens).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptBudget — Configurable charsPerToken Ratio
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptBudget — Configurable charsPerToken Ratio', () => {
+  it('should use default ratio of 4 when no constructor param provided', () => {
+    const budget = new DefaultPromptBudget()
+    // 'hello' = 5 chars → 5/4 = 1.25 → ceil to 2
+    const result = budget.calculate({ system: 'hello' })
+    expect(result.estimatedTokens).toBe(2)
+  })
+
+  it('should accept custom charsPerToken ratio', () => {
+    const budget = new DefaultPromptBudget(2)
+    // 'hello' = 5 chars → 5/2 = 2.5 → ceil to 3
+    const result = budget.calculate({ system: 'hello' })
+    expect(result.estimatedTokens).toBe(3)
+  })
+
+  it('should use ratio of 1 for char-level precision', () => {
+    const budget = new DefaultPromptBudget(1)
+    // 'hello' = 5 chars → 5/1 = 5
+    const result = budget.calculate({ system: 'hello' })
+    expect(result.estimatedTokens).toBe(5)
+  })
+
+  it('should use larger ratio for more conservative estimation', () => {
+    const budget = new DefaultPromptBudget(10)
+    // 'hello' = 5 chars → 5/10 = 0.5 → ceil to 1
+    const result = budget.calculate({ system: 'hello' })
+    expect(result.estimatedTokens).toBe(1)
+  })
+
+  it('should handle very small ratio (aggressive estimation)', () => {
+    const budget = new DefaultPromptBudget(0.5)
+    // 'hello' = 5 chars → 5/0.5 = 10
+    const result = budget.calculate({ system: 'hello' })
+    expect(result.estimatedTokens).toBe(10)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptBudget — Deterministic Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptBudget — Deterministic Token Estimation', () => {
+  it('should produce identical estimatedTokens for identical input', () => {
+    const budget = new DefaultPromptBudget()
+    const input = { system: 'hello world' }
+    const result1 = budget.calculate(input)
+    const result2 = budget.calculate(input)
+    expect(result1.estimatedTokens).toBe(result2.estimatedTokens)
+  })
+
+  it('should produce different results when charsPerToken differs', () => {
+    const budget1 = new DefaultPromptBudget(4)
+    const budget2 = new DefaultPromptBudget(2)
+    const input = { system: 'hello world test' } // 16 chars
+    const result1 = budget1.calculate(input) // 16/4 = 4
+    const result2 = budget2.calculate(input) // 16/2 = 8
+    expect(result1.estimatedTokens).toBe(4)
+    expect(result2.estimatedTokens).toBe(8)
+    expect(result1.estimatedTokens).not.toBe(result2.estimatedTokens)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// DefaultPromptBudget — Immutability with Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('DefaultPromptBudget — Immutability with Token Estimation', () => {
+  it('should not modify input context when calculating estimatedTokens', () => {
+    const budget = new DefaultPromptBudget()
+    const input: PromptContext = { system: 'hello' }
+    const inputCopy = { ...input }
+    budget.calculate(input)
+    expect(input).toEqual(inputCopy)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBudget — Token Estimation Builder Integration
+// ---------------------------------------------------------------------------
+
+describe('PromptBudget — Token Estimation Builder Integration', () => {
+  it('should include estimatedTokens in assembly metadata', async () => {
+    const builder = new DefaultPromptBuilder([new UserInputModule()])
+    const request = await builder.build({ input: 'hello world' })
+    const assembly = request.metadata!.promptAssembly as Record<string, unknown>
+    const budgetResult = assembly.budget as PromptBudgetResult
+    expect(budgetResult.estimatedTokens).toBeDefined()
+    expect(typeof budgetResult.estimatedTokens).toBe('number')
+    // 'hello world' = 11 chars → 11/4 = 2.75 → ceil to 3
+    expect(budgetResult.estimatedTokens).toBe(3)
+  })
+
+  it('should work with budget-aware selection in builder pipeline', async () => {
+    const builder = new DefaultPromptBuilder(
+      [new SystemPromptModule(), new UserInputModule()],
+      undefined,
+      undefined,
+      undefined,
+      new DefaultPromptBudget(),
+    )
+    const request = await builder.build({ input: 'create a tree' })
+    const assembly = request.metadata!.promptAssembly as Record<string, unknown>
+    const budgetResult = assembly.budget as PromptBudgetResult
+    expect(budgetResult.estimatedTokens).toBeDefined()
+    expect(budgetResult.totalLength).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBudget — RetryPlanner Compatibility with Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('PromptBudget — RetryPlanner with Token Estimation', () => {
+  it('should work with RetryPlanner when budget estimates tokens', async () => {
+    const provider = new MockPlannerProvider(new DefaultAIConfiguration())
+    const retryPlanner = new RetryPlanner(provider)
+    const pipeline = new DefaultPipeline(
+      retryPlanner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+    )
+    const result = await pipeline.execute({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+
+    // Budget with token estimation works independently
+    const budget = new DefaultPromptBudget()
+    const budgetResult = budget.calculate({ system: 'test' })
+    expect(budgetResult.estimatedTokens).toBeDefined()
+    expect(typeof budgetResult.estimatedTokens).toBe('number')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBudget — ToolCallPlanner Compatibility with Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('PromptBudget — ToolCallPlanner with Token Estimation', () => {
+  it('should work with ToolCallPlanner when budget estimates tokens', async () => {
+    const tool = createMockTool('find_entity', { found: true })
+    const registry = new DefaultToolRegistry([tool])
+    const provider = new MockPlannerProvider(new DefaultAIConfiguration())
+    const toolCallPlanner = new ToolCallPlanner(provider, registry)
+    const pipeline = new DefaultPipeline(
+      toolCallPlanner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+    )
+    const result = await pipeline.execute({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBudget — Streaming Compatibility with Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('PromptBudget — Streaming with Token Estimation', () => {
+  it('should work with streaming provider when budget estimates tokens', async () => {
+    const streamingProvider = new MockStreamingProvider()
+    const planner = new MockPlanner(streamingProvider)
+    const pipeline = new DefaultPipeline(
+      planner,
+      new DefaultPromptBuilder([new SystemPromptModule(), new UserInputModule()]),
+      streamingProvider,
+    )
+    const result = await pipeline.stream({ input: 'tree' })
+    expect(result.plannerResult!.actions).toBeDefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBudget — AgentLoop Compatibility with Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('PromptBudget — AgentLoop with Token Estimation', () => {
+  it('should work with AgentLoop and Reflection when budget estimates tokens', async () => {
+    const reflection = new DefaultReflection()
+    const agentLoop = new DefaultAgentLoop(reflection)
+    const pipeline = new DefaultPipeline(
+      createMockPlanner(treeResult),
+      new DefaultPromptBuilder([new SystemPromptModule(), new ReflectionPromptModule(), new UserInputModule()]),
+      undefined,
+      agentLoop,
+    )
+    const result = await pipeline.execute({ input: 'create a tree' })
+    expect(result.plannerResult!.actions).toHaveLength(1)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// PromptBudget — Backward Compatibility with Token Estimation
+// ---------------------------------------------------------------------------
+
+describe('PromptBudget — Backward Compatibility with Token Estimation', () => {
+  it('should still calculate totalLength correctly', () => {
+    const budget = new DefaultPromptBudget()
+    const result = budget.calculate({ system: 'test' })
+    expect(result.totalLength).toBe(4)
+  })
+
+  it('should still calculate sectionLengths correctly', () => {
+    const budget = new DefaultPromptBudget()
+    const result = budget.calculate({ system: 'test', userInput: 'input' })
+    expect(result.sectionLengths.system).toBe(4)
+    expect(result.sectionLengths.userInput).toBe(5)
+  })
+
+  it('should not mutate input context even with token estimation', () => {
+    const budget = new DefaultPromptBudget()
+    const ctx: PromptContext = { system: 'hello' }
+    const ctxBefore = JSON.stringify(ctx)
+    budget.calculate(ctx)
+    expect(JSON.stringify(ctx)).toBe(ctxBefore)
   })
 })

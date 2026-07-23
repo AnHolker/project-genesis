@@ -16,12 +16,12 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.27 (Sprint 4) |
+| Architecture Version | v0.28 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
 | Prompt Pipeline | Complete — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → PromptSelection (consumes Ranking + Budget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
@@ -108,6 +108,7 @@
 | WO-S4-001 | Prompt Selection Foundation |
 | WO-S4-002 | Prompt Selection Consumption |
 | WO-S4-003 | Prompt Compression Consumption |
+| WO-S4-004 | Prompt Budget Token Estimation |
 
 ---
 
@@ -661,6 +662,7 @@ Key remaining items:
 | ADR-0038 | Prompt Selection Foundation | `docs/adr/ADR-0038-prompt-selection-foundation.md` |
 | ADR-0039 | Prompt Selection Consumption | `docs/adr/ADR-0039-prompt-selection-consumption.md` |
 | ADR-0040 | Prompt Compression Consumption | `docs/adr/ADR-0040-prompt-compression-consumption.md` |
+| ADR-0041 | Prompt Budget Token Estimation | `docs/adr/ADR-0041-prompt-budget-token-estimation.md` |
 
 ---
 

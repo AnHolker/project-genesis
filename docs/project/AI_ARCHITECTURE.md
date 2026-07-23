@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.27)
+> Project Genesis — AI Architecture Reference (v0.28)
 > Primary reference for all AI development.
 
 ---
@@ -245,6 +245,8 @@ removes sections excluded by PromptSelection. Idempotent, non-mutating, determin
 ### PromptBudget
 
 Standalone budget calculation layer for measuring PromptContext sizes.
+Since WO-S4-004, DefaultPromptBudget calculates an estimated token count
+using a configurable chars-per-token ratio (default: 4).
 
 ```typescript
 interface PromptBudget {
@@ -266,10 +268,12 @@ interface PromptBudgetResult {
 }
 ```
 
-**DefaultPromptBudget** — character-count implementation.
+**DefaultPromptBudget** — character-count implementation with rule-based token estimation.
 - Iterates known PromptContext fields, records `.length` for each
 - Returns `totalLength` and `sectionLengths`
-- `estimatedTokens` is left `undefined`
+- Calculates `estimatedTokens = Math.ceil(totalLength / charsPerToken)`
+- Configurable `charsPerToken` ratio via constructor (default: 4)
+- Returns `estimatedTokens` as `undefined` when `totalLength` is 0
 
 **Future implementations** (not implemented):
 - TokenBudget — real tokenizer (tiktoken, etc.)
@@ -996,7 +1000,7 @@ Order matters — modules appear in the prompt in array order.
 
 ---
 
-## Sprint 4 Final Architecture (v0.27)
+## Sprint 4 Final Architecture (v0.28)
 
 The complete architecture at the end of Sprint 4:
 
