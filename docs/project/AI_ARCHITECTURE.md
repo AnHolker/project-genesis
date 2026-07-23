@@ -843,15 +843,21 @@ DefaultAgentLoop.execute() emits (independent of Pipeline):
 
 ```
 AIConfiguration
-  ├── provider: string          "mock" | "openai" | "deepseek"
-  ├── model: string             model identifier
-  ├── apiKey?: string           API key (required for openai, deepseek)
-  ├── baseURL?: string          custom endpoint (required for deepseek)
-  ├── temperature: number       response randomness (0.0–2.0)
-  └── maxTokens: number         max output tokens
+  ├── provider: string           "mock" | "openai" | "deepseek"
+  ├── model: string              model identifier
+  ├── apiKey?: string            API key (required for openai, deepseek)
+  ├── baseURL?: string           custom endpoint (required for deepseek)
+  ├── temperature: number        response randomness (0.0–2.0)
+  ├── maxTokens: number          max output tokens (deprecated — use maxOutputTokens)
+  ├── maxOutputTokens?: number   max output tokens (preferred)
+  ├── streaming?: boolean        enable streaming response mode
+  ├── toolCalling?: boolean      enable native tool calling support
+  └── allowBrowser?: boolean     allow browser API key usage (dev only)
 
 DefaultAIConfiguration:
-  provider="mock", model="mock", temperature=0, maxTokens=0
+  provider="mock", model="mock", temperature=0, maxTokens=0,
+  streaming=false, toolCalling=false,
+  maxOutputTokens=undefined, apiKey=undefined, baseURL=undefined, allowBrowser=undefined
 
 Usage:
   const config: AIConfiguration = { ... }

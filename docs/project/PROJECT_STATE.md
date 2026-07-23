@@ -16,7 +16,7 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 4 **In Progress** |
-| Architecture Version | v0.30 (Sprint 4) |
+| Architecture Version | v0.31 (Sprint 4) |
 | Architecture Status | **Stable** — All interfaces frozen. No breaking changes expected. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
@@ -111,6 +111,7 @@
 | WO-S4-004 | Prompt Budget Token Estimation |
 | WO-S4-005 | Provider Budget Foundation |
 | WO-S4-006 | Provider Budget Consumption |
+| WO-S4-007 | AI Configuration Foundation |
 
 ---
 
@@ -668,6 +669,7 @@ Key remaining items:
 | ADR-0041 | Prompt Budget Token Estimation |
 | ADR-0042 | Provider Budget Foundation | `docs/adr/ADR-0042-provider-budget-foundation.md` |
 | ADR-0043 | Provider Budget Consumption | `docs/adr/ADR-0043-provider-budget-consumption.md` |
+| ADR-0044 | AI Configuration Foundation | `docs/adr/ADR-0044-ai-configuration-foundation.md` |
 
 ---
 

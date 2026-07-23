@@ -81,6 +81,7 @@ Each module owns exactly one responsibility. No responsibility duplication.
 | `PromptBudget` | Measure section sizes | Modify context |
 | `ProviderBudget` | Look up provider/model capacity | Measure prompts, call SDKs |
 | `MemoryRanking` | Determine section priority | Modify context |
+| `AIConfiguration` | Unify AI runtime settings | Depend on any component |
 | `Planner` | Route requests to provider | Call LLM directly |
 | `PlannerProvider` | Communicate with LLM | Plan, validate |
 | `AgentLoop` | Multi-step execution control | Plan, call LLM |

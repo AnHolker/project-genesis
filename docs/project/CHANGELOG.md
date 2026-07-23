@@ -1205,6 +1205,41 @@
 - No breaking changes to any Public API
 - Architecture version v0.30
 
+### WO-S4-007 — AI Configuration Foundation
+
+- **AIConfiguration interface evolved** — unified configuration model for all AI runtime settings
+  - New fields: `maxOutputTokens?: number` (preferred over `maxTokens`), `streaming?: boolean`, `toolCalling?: boolean`
+  - `maxTokens` marked `@deprecated` in favor of `maxOutputTokens`
+  - All existing fields preserved for backward compatibility
+  - No speculative fields — every field has a clear future consumer
+- **DefaultAIConfiguration enhanced** — immutable default implementation
+  - `streaming: false`, `toolCalling: false`, `maxOutputTokens: undefined`
+  - All properties are `readonly` — immutable by design
+  - Deterministic: identical values on every instantiation
+  - Pure: no I/O, no SDK calls, no environment variable access
+- **createAIConfiguration enhanced** — new environment variable support
+  - `VITE_AI_STREAMING` → `streaming` field (when `"true"`)
+  - `VITE_AI_TOOL_CALLING` → `toolCalling` field (when `"true"`)
+  - When set to `"false"` or not set, fields remain `undefined` (downstream chooses default)
+- **No component modifications** — no changes to PromptBuilder, Planner, PlannerProvider, ProviderBudget, PromptBudget, PromptSelection, PromptCompression, Runtime, AgentLoop, or Pipeline
+- **No constructor changes** — no existing component constructors modified
+- Created ADR-0044: AI Configuration Foundation
+- All 1029 tests pass (970 existing + 44 new + 15 web) with zero modifications to existing tests
+- New test file `AIConfigurationFoundation.test.ts` (44 tests, 9 groups):
+  - Interface (10 tests): required provider, optional model, temperature, maxOutputTokens, streaming, toolCalling, apiKey, baseURL, allowBrowser
+  - Defaults (10 tests): mock provider, mock model, 0 temperature, 0 maxTokens, false streaming, false toolCalling, undefined maxOutputTokens/apiKey/baseURL/allowBrowser
+  - Deterministic (1 test): identical values across instances
+  - Immutable (2 tests): readonly properties, independent instances
+  - No Side Effects (2 tests): no I/O, no env dependency
+  - Environment (7 tests): mock defaults, provider, model, streaming, toolCalling, false streaming, false toolCalling
+  - Backward Compatibility (5 tests): existing configs, DefaultAIConfiguration, createAIConfiguration, ProviderFactory, assignability
+  - Exports (3 tests): AIConfiguration type, DefaultAIConfiguration class, createAIConfiguration function
+  - Compatibility (4 tests): ProviderFactory, RetryPlanner, ToolCallPlanner, Streaming, AgentLoop
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to any existing component
+- No breaking changes to any Public API
+- Architecture version v0.31
+
 ---
 
 ## Sprint 4 — AI Polish & Production Readiness
