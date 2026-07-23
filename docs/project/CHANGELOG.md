@@ -1450,3 +1450,48 @@
 - No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, BuilderOptions, or any existing component
 - No breaking changes to any Public API
 - Architecture version v0.36
+
+### WO-S5-002 — Rule-Based Intent Analyzer
+
+- **Created `RuleBasedIntentAnalyzer`** — production V1 keyword-based intent detector
+  - `packages/ai/src/intent/RuleBasedIntentAnalyzer.ts`
+  - Detects all 5 foundation intent types: Create, Delete, Move, Modify, Query
+  - Chinese keywords: 创建, 生成, 画, 添加, 放一个, 放一棵, 删除, 移除, 清除, 移动, 挪, 修改, 改变, 编辑, 查询, 看看, 有什么
+  - English keywords: spawn, create, draw, add, make, remove, delete, move, translate, replace, change, what, show, list
+  - Multi-intent detection via separator-based segmentation (， 、 。 , . 再 然后 and then)
+  - Duplicate removal preserving input order
+  - Case-insensitive English matching
+  - Unknown/empty input returns `{ intents: [] }` (never throws)
+  - Pure, stateless, deterministic — no I/O, no LLM, no external dependencies
+- **Public exports** — `RuleBasedIntentAnalyzer` exported from:
+  - `packages/ai/src/intent/index.ts`
+  - `packages/ai/src/index.ts` (package root)
+- **No modifications to existing interfaces** — Intent, IntentType, IntentResult, IntentAnalyzer unchanged
+- **DefaultIntentAnalyzer unaffected** — continues working unchanged
+- Created ADR-0049: Rule-Based Intent Analyzer
+- All existing tests pass with zero modifications
+- New test file `RuleBasedIntentAnalyzer.test.ts` (93 tests, 14 groups):
+  - Create (11 tests): all 6 Chinese + 5 English keywords
+  - Delete (5 tests): all 3 Chinese + 2 English keywords
+  - Move (4 tests): all 2 Chinese + 2 English keywords
+  - Modify (5 tests): all 3 Chinese + 2 English keywords
+  - Query (6 tests): all 3 Chinese + 3 English keywords
+  - Case Insensitivity (6 tests): UPPERCASE, Capitalized, lowercase, mixed, UPPERCASE delete and move
+  - Multiple Keywords Same Intent (2 tests): multiple Create keywords, multiple Delete keywords
+  - Multiple Intents (8 tests): Create+Delete, Create+Move, Modify+Query, Chinese multi-intent with ，, with 再, with ，再, with and, Move+Create with then
+  - Duplicate Removal (4 tests): Chinese dedup, English dedup, Delete dedup, Move+Create+Move dedup order
+  - Unknown Input (14 tests): empty, whitespace, tabs, newlines, greeting, weather, gibberish, emoji, special chars, numbers, mixed, null-like, long strings, no throw
+  - Deterministic (3 tests): same input repeated, each Chinese type, idempotent across 10 calls
+  - Stateless (2 tests): no state between calls, independent instances
+  - Immutability (2 tests): input unchanged, new result per call
+  - Architecture Compliance (7 tests): implements IntentAnalyzer, has analyze method, returns IntentResult type, pure, stateless, exports, type from root
+  - DefaultIntentAnalyzer Unaffected (2 tests): still returns empty
+  - Mixed Inputs (7 tests): Chinese+English mixed, Chinese intent+English object, punctuation, multiple separators, trailing/leading separator
+  - RetryPlanner Compatibility (2 tests): works with RetryPlanner
+  - ToolCallPlanner Compatibility (2 tests): works with ToolCallPlanner
+  - Streaming Compatibility (2 tests): works with StreamingProvider
+  - AgentLoop Compatibility (2 tests): works with DefaultAgentLoop
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, BuilderOptions, or any existing component
+- No breaking changes to any Public API
+- Architecture version v0.37

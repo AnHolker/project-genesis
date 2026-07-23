@@ -16,12 +16,12 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 5 **In Progress** |
-| Architecture Version | v0.36 (Sprint 5) |
+| Architecture Version | v0.37 (Sprint 5) |
 | Architecture Status | **Evolving** — Intent Analysis Foundation (WO-S5-001) added. Frozen Sprint 4 interfaces unchanged. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption + AI Configuration Foundation + AI Configuration Consumption + BuilderOptions Foundation + BuilderOptions Consumption + Architecture Review + Intent Analysis Foundation — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption + AI Configuration Foundation + AI Configuration Consumption + BuilderOptions Foundation + BuilderOptions Consumption + Architecture Review + Intent Analysis Foundation + Rule-Based Intent Analyzer — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
 | Prompt Pipeline | **Frozen** — Structured Prompt Context (PromptContext) → PromptModule[] → PromptBuilder → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection (consumes Ranking + Budget + ProviderBudget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
 | Intent Layer | **Foundation** — IntentAnalyzer interface + DefaultIntentAnalyzer (empty placeholder). Not yet integrated into Pipeline. |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
@@ -124,6 +124,7 @@
 | ID | Title |
 |----|-------|
 | WO-S5-001 | Intent Analysis Foundation |
+| WO-S5-002 | Rule-Based Intent Analyzer |
 
 ---
 
@@ -472,7 +473,7 @@ class DefaultMemory implements Memory {
 
 ---
 
-## Current Architecture (v0.36)
+## Current Architecture (v0.37)
 
 ```
 User Natural Language
@@ -700,6 +701,7 @@ Key remaining items:
 | ADR-0046 | BuilderOptions Foundation | `docs/adr/ADR-0046-builder-options-foundation.md` |
 | ADR-0047 | Sprint 4 Freeze | `docs/adr/ADR-0047-sprint4-freeze.md` |
 | ADR-0048 | Intent Analysis Foundation | `docs/adr/ADR-0048-intent-analysis-foundation.md` |
+| ADR-0049 | Rule-Based Intent Analyzer | `docs/adr/ADR-0049-rule-based-intent-analyzer.md` |
 
 ---
 

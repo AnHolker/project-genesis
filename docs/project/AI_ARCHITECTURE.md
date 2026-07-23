@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.36)
+> Project Genesis — AI Architecture Reference (v0.37)
 > Primary reference for all AI development.
 
 ### BuilderOptions
@@ -35,7 +35,7 @@ The Intent Layer is the semantic bridge between natural language and executable 
 
 ### Architecture Status
 
-**Foundation only** — The intent abstraction exists but is NOT yet integrated into the Pipeline, PromptBuilder, Planner, or AgentLoop. Integration is deferred to future Work Orders.
+**Production V1** — DefaultIntentAnalyzer (placeholder) + RuleBasedIntentAnalyzer (production). NOT yet integrated into Pipeline, PromptBuilder, Planner, or AgentLoop.
 
 ### Component Responsibilities
 
@@ -46,6 +46,7 @@ The Intent Layer is the semantic bridge between natural language and executable 
 | `IntentResult` | Interface | Container for multiple intents: `{ intents: Intent[] }` |
 | `IntentAnalyzer` | Interface | Contract for extracting intents from natural language: `analyze(input: string): IntentResult` |
 | `DefaultIntentAnalyzer` | Class | Placeholder implementation returning empty `{ intents: [] }` |
+| `RuleBasedIntentAnalyzer` | Class | Production V1 — keyword-based intent detection |
 
 ### Intent Types
 
@@ -69,6 +70,42 @@ class DefaultIntentAnalyzer implements IntentAnalyzer {
 - Pure, deterministic, stateless, no side effects
 - No dependencies on Planner, Runtime, Provider, Memory, ToolCalling, or AgentLoop
 
+### RuleBasedIntentAnalyzer
+
+Production V1 intent analyzer using keyword matching. Introduced in WO-S5-002.
+
+**Keyword Mapping:**
+
+| IntentType | Chinese Keywords | English Keywords |
+|-----------|-----------------|------------------|
+| `Create` | 创建, 生成, 画, 添加, 放一个, 放一棵 | spawn, create, draw, add, make |
+| `Delete` | 删除, 移除, 清除 | remove, delete |
+| `Move` | 移动, 挪 | move, translate |
+| `Modify` | 修改, 改变, 编辑 | replace, change |
+| `Query` | 查询, 看看, 有什么 | what, show, list |
+
+**Algorithm:**
+
+```
+analyze(input):
+  1. Trim — return empty if blank
+  2. Split by separators (， 、 。 , . 再 然后 and then)
+  3. For each segment:
+     a. Lowercase for case-insensitive matching
+     b. Scan all keywords in INTENT_ORDER priority
+     c. If keyword found → add IntentType
+  4. Deduplicate — first occurrence preserved
+  5. Return IntentResult or empty result
+```
+
+**Properties:**
+- Pure, stateless, deterministic — no I/O, no LLM, no external dependencies
+- Case-insensitive English keyword matching
+- Multi-intent support via separator-based segmentation
+- Duplicate removal preserves input order
+- Unknown/empty input returns `{ intents: [] }` (never throws)
+- Implements `IntentAnalyzer` interface — no modifications to existing interfaces
+
 ### Dependency Rules
 
 - `IntentAnalyzer` must NOT depend on Planner, Runtime, Provider, Memory, ToolCalling, AgentLoop, PromptBuilder, or Pipeline
@@ -80,7 +117,6 @@ class DefaultIntentAnalyzer implements IntentAnalyzer {
 
 | Capability | Interface | Mechanism |
 |-----------|-----------|-----------|
-| RuleBasedIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
 | HeuristicIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
 | LLMIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
 | Intent → PromptAssembly | `PromptContext` | Add intent to PromptContext |
