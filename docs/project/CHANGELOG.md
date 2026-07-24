@@ -1495,3 +1495,56 @@
 - No modifications to Planner, Pipeline, Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, BuilderOptions, or any existing component
 - No breaking changes to any Public API
 - Architecture version v0.37
+
+### WO-S5-003 — Intent Consumption
+
+- **Integrated IntentAnalyzer into Prompt Assembly pipeline**
+  - Added `intentAnalyzer?: IntentAnalyzer` field to `BuilderOptions` interface
+  - Updated `DefaultPromptBuilder` to accept and invoke IntentAnalyzer from BuilderOptions
+  - No new positional constructor parameters — only BuilderOptions form
+  - Pipeline execution order: Prompt Modules → IntentAnalyzer.analyze() → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection → PromptCompression → PromptRenderer
+- **Metadata storage**
+  - IntentResult stored in `AIRequest.metadata.promptAssembly.intent`
+  - Conditional: only present when IntentAnalyzer is injected via BuilderOptions
+  - Not injected into PromptContext (deferred to future WO)
+  - Not rendered into prompt string (deferred to future WO)
+- **No modifications to existing components**
+  - PromptSelection unchanged
+  - PromptCompression unchanged
+  - PromptRenderer unchanged
+  - PromptBudget unchanged
+  - ProviderBudget unchanged
+  - MemoryRanking unchanged
+  - Runtime unchanged
+  - Planner unchanged
+  - Provider unchanged
+- **Backward compatible**
+  - Builder without IntentAnalyzer behaves identically
+  - Existing prompts unchanged
+  - Existing metadata unchanged (except new intent field)
+  - All legacy constructor signatures preserved
+- Created ADR-0050: Intent Consumption
+- New test file `IntentConsumption.test.ts` (46 tests, 17 groups):
+  - BuilderOptions — IntentAnalyzer field (3 tests)
+  - IntentAnalyzer invocation (4 tests): invoked exactly once, correct input, not invoked when absent, stateless
+  - IntentResult in metadata (5 tests): DefaultIntentAnalyzer, RuleBasedIntentAnalyzer, multi-intent, unknown input, absent when not injected
+  - Without IntentAnalyzer (2 tests): identical prompt and buildContext output
+  - Existing prompts unchanged (3 tests): SystemPromptModule, ObservationPromptModule, ReflectionPromptModule
+  - Existing metadata unchanged (2 tests): ranking/budget/selection preserved, context metadata preserved
+  - Deterministic behavior (2 tests)
+  - Stateless behavior (1 test)
+  - Immutability (2 tests): PipelineContext unmodified, PromptContext unmodified
+  - Backward compatibility (4 tests): legacy 1-param, legacy 8-param, empty BuilderOptions, UserInputModule alone
+  - RetryPlanner compatibility (2 tests)
+  - ToolCallPlanner compatibility (2 tests)
+  - Streaming compatibility (2 tests)
+  - AgentLoop compatibility (2 tests)
+  - DefaultIntentAnalyzer placeholder in pipeline (1 test)
+  - RuleBasedIntentAnalyzer integration (3 tests): Chinese Create, English Move, Query
+  - DefaultPipeline integration (3 tests): execute, stream, without analyzer
+  - Edge cases (3 tests): undefined input, blank input, null metadata
+- All 1334 tests pass (1319 AI + 15 Web)
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline (interface), Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, or AIConfiguration
+- No breaking changes to any Public API
+- Architecture version v0.38

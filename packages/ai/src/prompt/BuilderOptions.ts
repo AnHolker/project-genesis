@@ -5,6 +5,7 @@ import type { PromptBudget } from './PromptBudget'
 import type { PromptSelection } from './PromptSelection'
 import type { ProviderBudget } from './ProviderBudget'
 import type { AIConfiguration } from '../config'
+import type { IntentAnalyzer } from '../intent/IntentAnalyzer'
 
 /**
  * BuilderOptions consolidates all optional collaborators for DefaultPromptBuilder
@@ -13,6 +14,8 @@ import type { AIConfiguration } from '../config'
  * Since WO-S4-010, DefaultPromptBuilder consumes BuilderOptions directly
  * via constructor overloads. The legacy positional parameter form is preserved
  * for backward compatibility.
+ *
+ * Since WO-S5-003, BuilderOptions also accepts an optional IntentAnalyzer.
  *
  * Design principles:
  * - All fields are optional — no breaking changes
@@ -37,4 +40,6 @@ export interface BuilderOptions {
   providerBudget?: ProviderBudget
   /** Optional AIConfiguration (defaults to undefined — falls back to 'openai' provider) */
   configuration?: AIConfiguration
+  /** Optional IntentAnalyzer (defaults to undefined — no intent analysis) */
+  intentAnalyzer?: IntentAnalyzer
 }

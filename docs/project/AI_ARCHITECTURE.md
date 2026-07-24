@@ -1,11 +1,11 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.37)
+> Project Genesis — AI Architecture Reference (v0.38)
 > Primary reference for all AI development.
 
 ### BuilderOptions
 
-`BuilderOptions` is a consolidated options interface for `DefaultPromptBuilder`, introduced in WO-S4-009.
+`BuilderOptions` is a consolidated options interface for `DefaultPromptBuilder`, introduced in WO-S4-009. Extended with `intentAnalyzer` in WO-S5-003.
 
 ```typescript
 interface BuilderOptions {
@@ -16,14 +16,15 @@ interface BuilderOptions {
   selection?: PromptSelection
   providerBudget?: ProviderBudget
   configuration?: AIConfiguration
+  intentAnalyzer?: IntentAnalyzer       // ← NEW (WO-S5-003)
 }
 ```
 
-**Current status:** Fully consumed by `DefaultPromptBuilder` since WO-S4-010. Both legacy positional and BuilderOptions forms coexist.
+**Current status:** Fully consumed by `DefaultPromptBuilder` since WO-S4-010. Both legacy positional and BuilderOptions forms coexist. `intentAnalyzer` only available via BuilderOptions form — no new positional parameter added.
 
 **Design principles:**
 - All fields are optional
-- Each field maps 1:1 to an existing constructor parameter
+- Each field maps 1:1 to an existing or new constructor parameter
 - No new fields beyond what the constructor already accepts
 - Pure data interface — no methods, no behavior
 
@@ -35,7 +36,7 @@ The Intent Layer is the semantic bridge between natural language and executable 
 
 ### Architecture Status
 
-**Production V1** — DefaultIntentAnalyzer (placeholder) + RuleBasedIntentAnalyzer (production). NOT yet integrated into Pipeline, PromptBuilder, Planner, or AgentLoop.
+**Production V1** — DefaultIntentAnalyzer (placeholder) + RuleBasedIntentAnalyzer (production). Integrated into Prompt Assembly pipeline via BuilderOptions. IntentResult stored in `AIRequest.metadata.promptAssembly.intent`.
 
 ### Component Responsibilities
 
@@ -121,6 +122,7 @@ analyze(input):
 | LLMIntentAnalyzer | `IntentAnalyzer` | New class, same interface |
 | Intent → PromptAssembly | `PromptContext` | Add intent to PromptContext |
 | Intent → Pipeline | `PipelineContext` | Add intent to PipelineContext |
+| Intent Routing | `Planner` | Route intents to different executors |
 
 ---
 
@@ -141,6 +143,8 @@ PromptBuilder.build(context)         ← Prompt Assembly Orchestrator
     ↓
 PromptContext (structured intermediate)
     ↓
+IntentAnalyzer.analyze()              ← NEW: pure intent analysis (WO-S5-003)
+    ↓
 MemoryRanking.rank()                 ← determines section priority (pure measurement)
     ↓
 PromptBudget.calculate()              ← measures section sizes (pure measurement)
@@ -153,7 +157,7 @@ PromptCompression.compress()          ← cleans/strips PromptContext before ren
     ↓
 PromptRenderer.render()              ← converts PromptContext to string
     ↓
-AIRequest { prompt, metadata }       ← metadata includes ranking, budget, providerBudget & selection results
+AIRequest { prompt, metadata }       ← metadata includes intent, ranking, budget, providerBudget & selection results
     ↓
 AgentLoop.execute(request, planner)  ← wraps Planner.plan() with iteration control
     ↓
@@ -230,12 +234,13 @@ interface PromptBuilder {
 - Iterates over `PromptModule[]` and collects structured `PromptContext` via each module's `buildContext()` method
 - Merges partial contexts into a unified `PromptContext`
 - Executes the Prompt Assembly pipeline in order:
-  1. `MemoryRanking.rank()` — determines section priority (pure measurement, does not modify context)
-  2. `PromptBudget.calculate()` — measures section sizes (pure measurement, does not modify context)
-  3. `PromptSelection.select()` — decides which sections to preserve (pure decision, does not modify context)
-  4. `PromptCompression.compress()` — cleans/strips context (returns new PromptContext)
-  5. `PromptRenderer.render()` — converts compressed context to string
-- Attaches ranking, budget, and selection results to `AIRequest.metadata.promptAssembly`
+  1. `IntentAnalyzer.analyze()` — extracts user intents (pure analysis, when injected via BuilderOptions)
+  2. `MemoryRanking.rank()` — determines section priority (pure measurement, does not modify context)
+  3. `PromptBudget.calculate()` — measures section sizes (pure measurement, does not modify context)
+  4. `PromptSelection.select()` — decides which sections to preserve (pure decision, does not modify context)
+  5. `PromptCompression.compress()` — cleans/strips context (returns new PromptContext)
+  6. `PromptRenderer.render()` — converts compressed context to string
+- Attaches intent, ranking, budget, and selection results to `AIRequest.metadata.promptAssembly`
 - Also exposes `buildContext(context): Promise<PromptContext>` for structured access (compressed)
 - The builder is the **only** component that constructs `AIRequest`
 - Cannot render strings — that is the Renderer's sole responsibility
@@ -274,6 +279,7 @@ interface BuilderOptions {
   selection?: PromptSelection
   providerBudget?: ProviderBudget
   configuration?: AIConfiguration
+  intentAnalyzer?: IntentAnalyzer       // ← NEW (WO-S5-003)
 }
 ```
 
@@ -332,6 +338,8 @@ PromptModule[6]
   └── ReflectionPromptModule.buildContext() → { reflections: "..." }
                       ↓
             Merge into PromptContext
+                      ↓
+       [IntentAnalyzer.analyze()]          ← pure analysis → stored in metadata (WO-S5-003)
                       ↓
        [MemoryRanking.rank()]            ← pure measurement → stored in metadata
                       ↓
