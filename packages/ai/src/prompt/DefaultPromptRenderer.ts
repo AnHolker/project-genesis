@@ -22,6 +22,7 @@ export class DefaultPromptRenderer implements PromptRenderer {
    * Used by renderWithOrder() and serializePromptContext().
    */
   static readonly CANONICAL_ORDER: Array<keyof PromptContext> = [
+    'intentRendered',
     'system',
     'userInput',
     'memory',
@@ -40,20 +41,19 @@ export class DefaultPromptRenderer implements PromptRenderer {
   render(context: PromptContext): string {
     const keys = Object.keys(context) as Array<keyof PromptContext>
 
-    // Only include keys that exist in PromptContext
-    const promptKeys = keys.filter((key) =>
-      DefaultPromptRenderer.CANONICAL_ORDER.includes(key),
+    // Only include keys that exist in PromptContext and have non-empty content
+    const promptKeys = keys.filter(
+      (key) =>
+        DefaultPromptRenderer.CANONICAL_ORDER.includes(key) &&
+        context[key] !== undefined &&
+        context[key] !== '',
     )
 
-    // Check if any field has content — return empty if none
-    const hasContent = promptKeys.some(
-      (key) => context[key] !== undefined && context[key] !== '',
-    )
-    if (!hasContent) return ''
+    if (promptKeys.length === 0) return ''
 
     return promptKeys
       .map((key) => context[key] ?? '')
-      .join('\n')
+      .join('\n\n')
   }
 
   /**
@@ -68,14 +68,15 @@ export class DefaultPromptRenderer implements PromptRenderer {
   renderWithOrder(context: PromptContext): string {
     const order = DefaultPromptRenderer.CANONICAL_ORDER
 
-    // Check if any field is present — return empty if none
-    const hasContent = order.some(
+    // Only include fields with non-empty content
+    const promptKeys = order.filter(
       (key) => context[key] !== undefined && context[key] !== '',
     )
-    if (!hasContent) return ''
 
-    return order
+    if (promptKeys.length === 0) return ''
+
+    return promptKeys
       .map((key) => context[key] ?? '')
-      .join('\n')
+      .join('\n\n')
   }
 }

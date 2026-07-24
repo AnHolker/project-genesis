@@ -16,6 +16,7 @@ import { DefaultPromptRenderer } from './DefaultPromptRenderer'
  * - Independent: no dependencies on AgentLoop, Planner, or other components
  *
  * @property system — System prompt instructions (from SystemPromptModule)
+ * @property intentRendered — Formatted user intent text (from IntentRenderer)
  * @property userInput — Raw user input text (from UserInputModule)
  * @property memory — Conversation history (from MemoryPromptModule)
  * @property worldState — Current world snapshot (from WorldStatePromptModule)
@@ -25,6 +26,9 @@ import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 export interface PromptContext {
   /** System prompt instructions */
   system?: string
+
+  /** Formatted user intent text */
+  intentRendered?: string
 
   /** Raw user input text */
   userInput?: string

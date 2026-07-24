@@ -1,6 +1,6 @@
 # AI Architecture
 
-> Project Genesis — AI Architecture Reference (v0.39)
+> Project Genesis — AI Architecture Reference (v0.40)
 > Primary reference for all AI development.
 
 ### BuilderOptions
@@ -37,7 +37,7 @@ The Intent Layer is the semantic bridge between natural language and executable 
 
 ### Architecture Status
 
-**Production V1** — DefaultIntentAnalyzer (placeholder) + RuleBasedIntentAnalyzer (production) + IntentRenderer interface + DefaultIntentRenderer (production). Integrated into Prompt Assembly pipeline via BuilderOptions. IntentResult and intentRendered stored in `AIRequest.metadata.promptAssembly`.
+**Production V1** — Intent fully integrated into Prompt Assembly pipeline. IntentAnalyzer + IntentRenderer + DefaultPromptRenderer produce "User Intent:" section in final prompt. IntentResult and intentRendered stored in metadata.
 
 ### Component Responsibilities
 
@@ -149,7 +149,7 @@ PromptContext (structured intermediate)
     ↓
 IntentAnalyzer.analyze()              ← pure intent analysis (WO-S5-003)
     ↓
-IntentRenderer.render()               ← NEW: pure intent rendering (WO-S5-004)
+IntentRenderer.render()               ← pure intent rendering (WO-S5-004)
     ↓
 MemoryRanking.rank()                 ← determines section priority (pure measurement)
     ↓
@@ -161,7 +161,7 @@ PromptSelection.select()              ← decides which sections to preserve (co
     ↓
 PromptCompression.compress()          ← cleans/strips PromptContext before render
     ↓
-PromptRenderer.render()              ← converts PromptContext to string
+PromptRenderer.render()              ← converts PromptContext to string (includes intentRendered section)
     ↓
 AIRequest { prompt, metadata }       ← metadata includes intent, ranking, budget, providerBudget & selection results
     ↓
@@ -246,7 +246,7 @@ interface PromptBuilder {
   4. `PromptBudget.calculate()` — measures section sizes (pure measurement, does not modify context)
   5. `PromptSelection.select()` — decides which sections to preserve (pure decision, does not modify context)
   6. `PromptCompression.compress()` — cleans/strips context (returns new PromptContext)
-  7. `PromptRenderer.render()` — converts compressed context to string
+  7. `PromptRenderer.render()` — converts compressed context to string (includes intentRendered section when present)
 - Attaches intent, intentRendered, ranking, budget, and selection results to `AIRequest.metadata.promptAssembly`
 - Also exposes `buildContext(context): Promise<PromptContext>` for structured access (compressed)
 - The builder is the **only** component that constructs `AIRequest`
@@ -349,7 +349,7 @@ PromptModule[6]
                       ↓
        [IntentAnalyzer.analyze()]          ← pure analysis → stored in metadata
                       ↓
-       [IntentRenderer.render()]          ← pure rendering → stored in metadata (WO-S5-004)
+       [IntentRenderer.render()]          ← pure rendering → stored in metadata + PromptContext (WO-S5-004/005)
                       ↓
        [MemoryRanking.rank()]            ← pure measurement → stored in metadata
                       ↓

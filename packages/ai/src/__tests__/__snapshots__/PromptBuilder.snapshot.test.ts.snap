@@ -42,6 +42,7 @@ Respond with ONLY valid JSON. No markdown. No code fences. Pure JSON object:
 {"actions": [{"type": "CreateEntity", "entityType": "tree", "x": 5, "y": 3}]}
 
 If the input cannot be translated to actions, return {"actions": []}.
+
 增加一棵树"
 `;
 
@@ -65,7 +66,9 @@ Respond with ONLY valid JSON. No markdown. No code fences. Pure JSON object:
 {"actions": [{"type": "CreateEntity", "entityType": "tree", "x": 5, "y": 3}]}
 
 If the input cannot be translated to actions, return {"actions": []}.
+
 move tree
+
 Previous conversation:
 User: add a house
 Assistant: Created a house at (3, 5)
@@ -73,6 +76,7 @@ User: move house
 Assistant: Moved house to (7, 9)
 User: add a tree
 Assistant: Created a tree at (2, 2)
+
 Current World:
 
 House
@@ -104,10 +108,13 @@ Respond with ONLY valid JSON. No markdown. No code fences. Pure JSON object:
 {"actions": [{"type": "CreateEntity", "entityType": "tree", "x": 5, "y": 3}]}
 
 If the input cannot be translated to actions, return {"actions": []}.
+
 增加一棵树
+
 Previous conversation:
 User: add tree
 Assistant: Created a tree
+
 Current World:
 
 Tree
@@ -135,5 +142,6 @@ Respond with ONLY valid JSON. No markdown. No code fences. Pure JSON object:
 {"actions": [{"type": "CreateEntity", "entityType": "tree", "x": 5, "y": 3}]}
 
 If the input cannot be translated to actions, return {"actions": []}.
+
 增加一棵树"
 `;

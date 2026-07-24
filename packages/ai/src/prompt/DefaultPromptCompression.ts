@@ -73,6 +73,7 @@ export class DefaultPromptCompression implements PromptCompression {
   private isPromptContextKey(key: string): key is keyof PromptContext {
     const validKeys: Array<keyof PromptContext> = [
       'system',
+      'intentRendered',
       'userInput',
       'memory',
       'worldState',

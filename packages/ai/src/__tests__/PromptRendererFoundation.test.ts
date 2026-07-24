@@ -118,14 +118,14 @@ describe('DefaultPromptRenderer', () => {
   it('should join fields with newlines', () => {
     const renderer = new DefaultPromptRenderer()
     const result = renderer.render({ system: 'sys', userInput: 'input' })
-    expect(result).toBe('sys\ninput')
+    expect(result).toBe('sys\n\ninput')
   })
 
   it('should render undefined fields as empty strings', () => {
     const renderer = new DefaultPromptRenderer()
     const result = renderer.render({ system: 'sys', memory: undefined })
-    // memory exists as key but value is undefined
-    expect(result).toBe('sys\n')
+    // memory exists as key but value is undefined — filtered out
+    expect(result).toBe('sys')
   })
 
   it('should not include keys not in CANONICAL_ORDER', () => {

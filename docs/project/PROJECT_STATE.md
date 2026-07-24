@@ -16,14 +16,14 @@
 | Item | Status |
 |------|--------|
 | Status | Sprint 5 **In Progress** |
-| Architecture Version | v0.39 (Sprint 5) |
-| Architecture Status | **Evolving** — Intent Rendering Foundation (WO-S5-004) added. IntentRenderer integrated into Prompt Assembly pipeline. |
+| Architecture Version | v0.40 (Sprint 5) |
+| Architecture Status | **Evolving** — Intent Prompt Integration (WO-S5-005) added. Intent section rendered in final prompt. |
 | Runtime Status | Stable (Action Registry + Query Layer) |
 | Renderer Status | Stable (Canvas Renderer) |
 | Planner Status | Stable (Planner Interface + PlannerResult + PlannerProvider + ProviderFactory) |
-| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption + AI Configuration Foundation + AI Configuration Consumption + BuilderOptions Foundation + BuilderOptions Consumption + Architecture Review + Intent Analysis Foundation + Rule-Based Intent Analyzer + Intent Consumption + **Intent Rendering Foundation** — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
-| Prompt Pipeline | **Evolving** — Structured Prompt Context (PromptContext) → PromptModule[] → **IntentAnalyzer** → **IntentRenderer** → Builder → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection (consumes Ranking + Budget + ProviderBudget) → PromptCompression (consumes Selection) → PromptRenderer → AIRequest |
-| Intent Layer | **Rendering** — IntentAnalyzer interface + DefaultIntentAnalyzer (placeholder) + RuleBasedIntentAnalyzer (production) + IntentRenderer interface + DefaultIntentRenderer (production). Integrated into Builder via BuilderOptions. IntentResult and intentRendered stored in promptAssembly metadata. |
+| AI Status | Provider Architecture Complete + Streaming Pipeline + Provider Native Tool Calling + Agent Loop Foundation + Pipeline-AgentLoop Integration + Multi-Step Agent Loop + Structured Observation Context + Planner Observation Awareness + Reflection Foundation + Structured Prompt Context + Prompt Renderer Foundation + Context Compression Foundation + Prompt Budget Foundation (Token Estimation) + Memory Ranking Foundation + Prompt Selection Foundation + Prompt Selection Consumption + Prompt Compression Consumption + Prompt Assembly Integration + Provider Budget Foundation + Provider Budget Consumption + AI Configuration Foundation + AI Configuration Consumption + BuilderOptions Foundation + BuilderOptions Consumption + Architecture Review + Intent Analysis Foundation + Rule-Based Intent Analyzer + Intent Consumption + Intent Rendering Foundation + **Intent Prompt Integration** — Mock / OpenAI / DeepSeek Providers + ProviderFactory + StructuredOutputValidator + StreamingPlannerProvider + ToolCallingProvider + AgentLoop (Multi-Step, Structured Observations, Reflection) |
+| Prompt Pipeline | **Evolving** — Structured Prompt Context (PromptContext) → PromptModule[] → **IntentAnalyzer** → **IntentRenderer** → Builder → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection (consumes Ranking + Budget + ProviderBudget) → PromptCompression (consumes Selection) → **PromptRenderer (with intent)** → AIRequest |
+| Intent Layer | **Integrated** — IntentAnalyzer + IntentRenderer + DefaultPromptRenderer. Intent rendered in final prompt as "User Intent:" section. |
 | Validator | StructuredOutputValidator — unified response validation for all providers |
 | Streaming | Complete — Pipeline.stream() + StreamChunk events + Streaming UI Integration |
 | Current Provider | ProviderFactory (configured via AIConfiguration) |
@@ -127,6 +127,7 @@
 | WO-S5-002 | Rule-Based Intent Analyzer |
 | WO-S5-003 | Intent Consumption |
 | WO-S5-004 | Intent Rendering Foundation |
+| WO-S5-005 | Intent Prompt Integration |
 
 ---
 
@@ -475,7 +476,7 @@ class DefaultMemory implements Memory {
 
 ---
 
-## Current Architecture (v0.39)
+## Current Architecture (v0.40)
 
 ```
 User Natural Language
@@ -486,13 +487,15 @@ PipelineContext { input, memory?, metadata?, worldState? }
     ↓
 PromptBuilder.build(context)         ← uses PromptModule[] + IntentAnalyzer + IntentRenderer
     ├── IntentAnalyzer.analyze(input) ← consumed: IntentResult → metadata.promptAssembly.intent
-    ├── IntentRenderer.render(intent) ← rendered: intentRendered → metadata.promptAssembly.intentRendered
+    ├── IntentRenderer.render(intent) ← rendered: intentRendered → PromptContext + metadata
     ├── SystemPromptModule            ← Project Genesis system instructions
     ├── UserInputModule               ← returns context.input
     ├── MemoryPromptModule            ← reads "conversation" from Memory
     └── WorldStatePromptModule        ← reads context.worldState
     ↓
-AIRequest { prompt, metadata.promptAssembly.intent, promptAssembly.intentRendered }
+DefaultPromptRenderer.render(context) ← renders intentRendered as "User Intent:" section
+    ↓
+AIRequest { prompt: "User Intent:\n- Create\n\nYou are...\n\nUser Input:\n...", metadata.promptAssembly }
     ↓
 Planner.plan(request)
     ↓
@@ -570,7 +573,8 @@ PromptBuilder composition flow:
     ├── Each module.buildContext() → Partial<PromptContext>
     ├── Merge into unified PromptContext
     ├── IntentAnalyzer → pure analysis (user intents) ← (WO-S5-003)
-    ├── IntentRenderer → pure rendering (intent as string) ← NEW (WO-S5-004)
+    ├── IntentRenderer → pure rendering (intent as string) ← (WO-S5-004)
+    ├── DefaultPromptRenderer → renders intent in final prompt ← (WO-S5-005)
     ├── MemoryRanking → pure measurement (ranks sections)
     ├── PromptBudget → pure measurement (measures sizes)
     ├── ProviderBudget → pure lookup (provider/model token capacity)

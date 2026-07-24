@@ -134,6 +134,11 @@ export class DefaultPromptBuilder implements PromptBuilder {
       intentRendered = this.intentRenderer.render(intentResult)
     }
 
+    // Inject intentRendered into PromptContext for rendering
+    if (intentRendered !== undefined) {
+      promptContext.intentRendered = intentRendered
+    }
+
     // Phase 1: MemoryRanking — determine section priority (pure measurement)
     const rankingResult: MemoryRankingResult = this.ranking.rank(promptContext)
 
@@ -160,8 +165,15 @@ export class DefaultPromptBuilder implements PromptBuilder {
     // Phase 4: PromptCompression — clean up context (consumes selection result)
     const compressed = this.compression.compress(promptContext, selectionResult)
 
+    // Build render context with intentRendered first (ensures correct insertion order)
+    const renderContext: PromptContext = {}
+    if (intentRendered !== undefined && intentRendered.length > 0) {
+      renderContext.intentRendered = intentRendered
+    }
+    Object.assign(renderContext, compressed)
+
     // Phase 6: PromptRenderer — convert to string
-    const rendered = this.renderer.render(compressed)
+    const rendered = this.renderer.render(renderContext)
 
     // Build metadata with assembly info
     const metadata: Record<string, unknown> = {

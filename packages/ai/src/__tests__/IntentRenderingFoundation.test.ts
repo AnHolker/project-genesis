@@ -376,7 +376,7 @@ describe('DefaultPromptBuilder — existing prompts unchanged with IntentRendere
     expect(request.prompt).not.toContain('User Intent:')
   })
 
-  it('should produce identical prompt output with and without IntentRenderer', async () => {
+  it('should produce different prompt output with and without IntentRenderer', async () => {
     const context = createPipelineContext({ input: 'draw a tree' })
 
     const builderWithout = new DefaultPromptBuilder(createDefaultModules(), {
@@ -390,8 +390,10 @@ describe('DefaultPromptBuilder — existing prompts unchanged with IntentRendere
     const requestWithout = await builderWithout.build(context)
     const requestWith = await builderWith.build(context)
 
-    // Prompt should be identical - intentRendered is only in metadata, not prompt
-    expect(requestWith.prompt).toBe(requestWithout.prompt)
+    // Prompt differs: with IntentRenderer, intent is included in the prompt
+    expect(requestWith.prompt).not.toBe(requestWithout.prompt)
+    expect(requestWith.prompt).toContain('User Intent:')
+    expect(requestWithout.prompt).not.toContain('User Intent:')
   })
 })
 
@@ -746,13 +748,13 @@ describe('DefaultPromptBuilder — edge cases with IntentRenderer', () => {
     expect(assembly.intentRendered).toBe('')
   })
 
-  it('should not inject intentRendered into the final prompt', async () => {
+  it('should inject intentRendered into the final prompt', async () => {
     const builder = new DefaultPromptBuilder(createDefaultModules(), {
       intentAnalyzer: new RuleBasedIntentAnalyzer(),
       intentRenderer: new DefaultIntentRenderer(),
     })
     const request = await builder.build(createPipelineContext({ input: 'draw a tree' }))
-    expect(request.prompt).not.toContain('User Intent:')
-    expect(request.prompt).not.toContain('- Create')
+    expect(request.prompt).toContain('User Intent:')
+    expect(request.prompt).toContain('- Create')
   })
 })

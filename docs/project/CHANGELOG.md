@@ -1610,3 +1610,60 @@
 - No modifications to Planner, Pipeline (interface), Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, IntentAnalyzer, or Intent
 - No breaking changes to any Public API
 - Architecture version v0.39
+
+### WO-S5-005 — Intent Prompt Integration
+
+- **Intent section now renders in final prompt**
+  - Added `intentRendered?: string` to `PromptContext` interface (additive, non-breaking)
+  - Modified `DefaultPromptRenderer` to render intentRendered section in final prompt
+  - Section join changed from `\n` to `\n\n` — exactly one blank line between sections
+  - Empty/undefined intentRendered is filtered out — no blank lines, no placeholders
+  - `intentRendered` added to `CANONICAL_ORDER` as first field
+- **Builder injection**
+  - `DefaultPromptBuilder` injects intentRendered into PromptContext before rendering
+  - Injected first in insertion order to ensure correct section ordering
+  - `DefaultPromptCompression.isPromptContextKey()` now recognizes `intentRendered`
+- **Rendering behavior**
+  - Empty intent → no section, prompt remains identical
+  - Single intent → `"User Intent:\n- Create\n\nUser Input:\nDraw a tree"`
+  - Multiple intents → `"User Intent:\n- Create\n- Move\n\nUser Input:\n..."`
+  - Intent section always comes first in the prompt
+- **No modifications to:**
+  - PromptRenderer interface (unchanged)
+  - PromptBuilder interface (unchanged)
+  - IntentAnalyzer, IntentRenderer, IntentResult (unchanged)
+  - All existing component interfaces (unchanged)
+- **Backward compatible**
+  - No IntentAnalyzer → prompt identical to before
+  - No IntentRenderer → prompt identical to before
+  - All legacy constructor signatures preserved
+- Created ADR-0052: Intent Prompt Integration
+- New test file `IntentPromptIntegration.test.ts` (50 tests, 19 groups):
+  - Empty intent (4 tests)
+  - Single intent (3 tests)
+  - Multiple intents (2 tests)
+  - Prompt ordering (2 tests)
+  - Blank line rules (3 tests)
+  - No duplicate rendering (2 tests)
+  - Prompt equality without intent (2 tests)
+  - Deterministic behavior (2 tests)
+  - Stateless behavior (2 tests)
+  - Immutability (1 test)
+  - serializePromptContext compatibility (2 tests)
+  - PromptBuilder integration (6 tests)
+  - Backward compatibility (4 tests)
+  - RetryPlanner compatibility (2 tests)
+  - ToolCallPlanner compatibility (2 tests)
+  - Streaming compatibility (2 tests)
+  - AgentLoop compatibility (2 tests)
+  - Exports (2 tests)
+  - Pipeline integration (2 tests)
+  - Edge cases (3 tests)
+- Updated 2 existing tests in IntentRenderingFoundation.test.ts (now expects intent in prompt)
+- Updated 2 existing tests in PromptRendererFoundation.test.ts (new join behavior)
+- Updated 4 snapshot files
+- All 1441 tests pass (1426 AI + 15 Web)
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to PromptRenderer interface, PromptBuilder interface, IntentAnalyzer, IntentRenderer, Planner, Pipeline (interface), Provider, Runtime, AgentLoop
+- No breaking changes to any Public API
+- Architecture version v0.40
