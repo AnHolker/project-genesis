@@ -6,6 +6,7 @@ import type { PromptSelection } from './PromptSelection'
 import type { ProviderBudget } from './ProviderBudget'
 import type { AIConfiguration } from '../config'
 import type { IntentAnalyzer } from '../intent/IntentAnalyzer'
+import type { IntentRenderer } from '../intent/IntentRenderer'
 
 /**
  * BuilderOptions consolidates all optional collaborators for DefaultPromptBuilder
@@ -16,6 +17,7 @@ import type { IntentAnalyzer } from '../intent/IntentAnalyzer'
  * for backward compatibility.
  *
  * Since WO-S5-003, BuilderOptions also accepts an optional IntentAnalyzer.
+ * Since WO-S5-004, BuilderOptions also accepts an optional IntentRenderer.
  *
  * Design principles:
  * - All fields are optional — no breaking changes
@@ -42,4 +44,6 @@ export interface BuilderOptions {
   configuration?: AIConfiguration
   /** Optional IntentAnalyzer (defaults to undefined — no intent analysis) */
   intentAnalyzer?: IntentAnalyzer
+  /** Optional IntentRenderer (defaults to undefined — no intent rendering) */
+  intentRenderer?: IntentRenderer
 }

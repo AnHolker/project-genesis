@@ -19,6 +19,7 @@ import type { ReflectionResult } from '../reflection'
 import type { BuilderOptions } from './BuilderOptions'
 import type { IntentAnalyzer } from '../intent/IntentAnalyzer'
 import type { IntentResult } from '../intent/IntentResult'
+import type { IntentRenderer } from '../intent/IntentRenderer'
 import { DefaultPromptRenderer } from './DefaultPromptRenderer'
 import { DefaultPromptCompression } from './DefaultPromptCompression'
 import { DefaultMemoryRanking } from './DefaultMemoryRanking'
@@ -37,6 +38,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
   private readonly providerBudget?: ProviderBudget
   private readonly configuration?: AIConfiguration
   private readonly intentAnalyzer?: IntentAnalyzer
+  private readonly intentRenderer?: IntentRenderer
 
   /**
    * Create a DefaultPromptBuilder.
@@ -90,6 +92,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
       this.providerBudget = opts.providerBudget
       this.configuration = opts.configuration
       this.intentAnalyzer = opts.intentAnalyzer
+      this.intentRenderer = opts.intentRenderer
     } else {
       // Legacy positional form
       this.renderer = (rendererOrOptions as PromptRenderer | undefined) ?? new DefaultPromptRenderer()
@@ -100,6 +103,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
       this.providerBudget = providerBudget
       this.configuration = configuration
       this.intentAnalyzer = undefined
+      this.intentRenderer = undefined
     }
   }
 
@@ -122,6 +126,12 @@ export class DefaultPromptBuilder implements PromptBuilder {
     let intentResult: IntentResult | undefined
     if (this.intentAnalyzer !== undefined) {
       intentResult = this.intentAnalyzer.analyze(context.input)
+    }
+
+    // Phase 0.5: IntentRenderer — format intents as string (pure rendering)
+    let intentRendered: string | undefined
+    if (intentResult !== undefined && this.intentRenderer !== undefined) {
+      intentRendered = this.intentRenderer.render(intentResult)
     }
 
     // Phase 1: MemoryRanking — determine section priority (pure measurement)
@@ -158,6 +168,7 @@ export class DefaultPromptBuilder implements PromptBuilder {
       ...(context.metadata ?? {}),
       promptAssembly: {
         ...(intentResult !== undefined ? { intent: intentResult } : {}),
+        ...(intentRendered !== undefined ? { intentRendered } : {}),
         ranking: rankingResult,
         budget: budgetResult,
         selection: selectionResult,

@@ -1548,3 +1548,65 @@
 - No modifications to Planner, Pipeline (interface), Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, or AIConfiguration
 - No breaking changes to any Public API
 - Architecture version v0.38
+
+### WO-S5-004 — Intent Rendering Foundation
+
+- **Created `IntentRenderer` interface** — new abstraction for converting IntentResult to formatted string
+  - Single method: `render(intent: IntentResult): string`
+  - Pure, stateless, deterministic — consistent with all pipeline components
+  - No dependencies on Planner, Runtime, Provider, Memory, ToolCalling, AgentLoop, PromptBuilder, or Pipeline
+- **Created `DefaultIntentRenderer`** — default implementation with "User Intent:" format
+  - Empty IntentResult → empty string
+  - Single intent → `"User Intent:\n- Create"`
+  - Multiple intents → `"User Intent:\n- Create\n- Move"`
+  - Pure function, no side effects, stateless, deterministic, immutable
+  - No PromptContext dependency — consumes only IntentResult
+- **Integrated into Prompt Assembly pipeline**
+  - Added `intentRenderer?: IntentRenderer` field to `BuilderOptions`
+  - Updated `DefaultPromptBuilder` to call IntentRenderer after IntentAnalyzer
+  - Pipeline order: Modules → PromptContext → IntentAnalyzer → IntentRenderer → MemoryRanking → PromptBudget → ProviderBudget → PromptSelection → PromptCompression → PromptRenderer
+  - No new positional constructor parameters — only BuilderOptions form
+- **Metadata storage**
+  - `intentRendered` stored in `AIRequest.metadata.promptAssembly.intentRendered`
+  - Only present when both IntentAnalyzer and IntentRenderer are injected via BuilderOptions
+  - NOT injected into PromptContext (deferred)
+  - NOT rendered into final prompt string (deferred)
+- **No modifications to existing components**
+  - PromptRenderer unchanged
+  - PromptContext unchanged
+  - IntentAnalyzer unchanged
+  - All Intent Layer interfaces unchanged
+- **Backward compatible**
+  - Builder without IntentRenderer behaves identically
+  - Existing prompts unchanged
+  - Existing metadata unchanged (except new intentRendered field)
+  - All legacy constructor signatures preserved
+- Created ADR-0051: Intent Rendering Foundation
+- New test file `IntentRenderingFoundation.test.ts` (57 tests, 20 groups):
+  - IntentRenderer interface (2 tests)
+  - DefaultIntentRenderer — empty intents (2 tests)
+  - DefaultIntentRenderer — single intent (5 tests, all 5 IntentTypes)
+  - DefaultIntentRenderer — multiple intents (4 tests)
+  - DefaultIntentRenderer — deterministic (3 tests)
+  - DefaultIntentRenderer — stateless (2 tests)
+  - DefaultIntentRenderer — immutability (2 tests)
+  - BuilderOptions — IntentRenderer field (3 tests)
+  - PromptBuilder integration — metadata generation (5 tests)
+  - DefaultIntentAnalyzer + IntentRenderer (2 tests)
+  - Existing prompts unchanged (2 tests)
+  - Existing metadata unchanged (2 tests)
+  - Deterministic behavior (2 tests)
+  - Stateless behavior (1 test)
+  - Backward compatibility (3 tests)
+  - RetryPlanner compatibility (2 tests)
+  - ToolCallPlanner compatibility (2 tests)
+  - Streaming compatibility (2 tests)
+  - AgentLoop compatibility (2 tests)
+  - Exports (4 tests)
+  - Pipeline integration (2 tests)
+  - Edge cases (3 tests)
+- All 1391 tests pass (1376 AI + 15 Web)
+- TypeScript 0 errors, ESLint 0 errors
+- No modifications to Planner, Pipeline (interface), Provider, Runtime, AgentLoop, PromptModule, PromptRenderer, PromptBudget, PromptSelection, PromptCompression, MemoryRanking, ProviderBudget, AIConfiguration, IntentAnalyzer, or Intent
+- No breaking changes to any Public API
+- Architecture version v0.39
